@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, "../.env");
 console.log("📁 Loading .env from:", envPath);
 
-dotenv.config({ path: envPath });
+dotenv.config({ path: envPath, override: true });
 
 // Optional debug
 console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI ? "✅ Present" : "❌ Missing");
@@ -350,11 +350,17 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log("=".repeat(60));
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🔌 Socket.IO server ready`);
-  console.log(`🌐 Accepting connections from: http://localhost:3000`);
-  console.log("=".repeat(60));
+// Connect to database before starting server
+connectDB().then(() => {
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    console.log("=".repeat(60));
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`🔌 Socket.IO server ready`);
+    console.log(`🌐 Accepting connections from: http://localhost:3000`);
+    console.log("=".repeat(60));
+  });
+}).catch((error) => {
+  console.error("❌ Failed to start server:", error);
+  process.exit(1);
 });
