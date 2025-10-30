@@ -10,8 +10,12 @@ import messageRoutes from "./routes/messageroutes.js";
 import userRoutes from "./routes/userroutes.js";
 import passwordRoutes from "./routes/passwordroutes.js";
 
-// Load environment variables FIRST
-dotenv.config();
+// ✅ Load environment variables FIRST
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI);
+
 
 // Enhanced error handling for database connection
 connectDB().catch((error) => {
