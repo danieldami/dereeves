@@ -12,24 +12,18 @@ import messageRoutes from "./routes/messageroutes.js";
 import userRoutes from "./routes/userroutes.js";
 import passwordRoutes from "./routes/passwordroutes.js";
 
-// ✅ Load environment variables FIRST
+// 🔧 Resolve current file and directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
-console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI);
 
-// ✅ Load the .env from one folder above /src
+// ✅ Load .env from one level above /src
 const envPath = path.resolve(__dirname, "../.env");
 console.log("📁 Loading .env from:", envPath);
 
 dotenv.config({ path: envPath });
-console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI);
-// Enhanced error handling for database connection
-connectDB().catch((error) => {
-  console.error('❌ Database connection failed:', error);
-  process.exit(1);
-});
 
+// Optional debug
+console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI ? "✅ Present" : "❌ Missing");
 // Initialize express app
 const app = express();
 
