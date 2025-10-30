@@ -3,6 +3,8 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import cors from "cors";
 import connectDB from "./utils/db.js";
 import authRoutes from "./routes/authroutes.js";
@@ -16,7 +18,12 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI);
 
+// ✅ Load the .env from one folder above /src
+const envPath = path.resolve(__dirname, "../.env");
+console.log("📁 Loading .env from:", envPath);
 
+dotenv.config({ path: envPath });
+console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI);
 // Enhanced error handling for database connection
 connectDB().catch((error) => {
   console.error('❌ Database connection failed:', error);
