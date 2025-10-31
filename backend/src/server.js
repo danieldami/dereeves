@@ -25,44 +25,55 @@ console.log("📁 __dirname:", __dirname);
 // Check if file exists
 console.log("📁 .env file exists:", existsSync(envPath) ? "✅ Yes" : "❌ No");
 
-// Try loading .env with debug enabled
-const result = dotenv.config({ path: envPath, override: true, debug: true });
-console.log("📁 dotenv.config result:", result.error ? `❌ Error: ${result.error.message}` : "✅ Success");
-if (result.parsed) {
-  console.log("📁 Variables parsed:", Object.keys(result.parsed).length);
-  console.log("📁 Parsed keys:", Object.keys(result.parsed));
-} else {
-  console.log("⚠️ dotenv parsed is null/undefined - checking process.env directly");
-}
-
-// Debug environment variables BEFORE connectDB
-console.log("🧩 MONGO_URI before connectDB:", process.env.MONGO_URI ? `✅ Present (length: ${process.env.MONGO_URI.length}, first 50 chars: ${process.env.MONGO_URI.substring(0, 50)}...)` : "❌ Missing");
-console.log("🧩 JWT_SECRET before connectDB:", process.env.JWT_SECRET ? "✅ Present" : "❌ Missing");
-console.log("🧩 PORT before connectDB:", process.env.PORT || "Not set (will use default)");
-
-// If MONGO_URI is still missing, try reading .env file directly as fallback
-if (!process.env.MONGO_URI && existsSync(envPath)) {
-  console.log("⚠️ MONGO_URI missing after dotenv, attempting manual read...");
+// Always read .env file manually first (dotenv seems unreliable)
+if (existsSync(envPath)) {
   try {
+    console.log("📖 Reading .env file manually...");
     const envContent = readFileSync(envPath, 'utf8');
-    const lines = envContent.split('\n');
+    const lines = envContent.split(/\r?\n/); // Handle both Unix and Windows line endings
+    let loadedCount = 0;
+    
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed && !trimmed.startsWith('#')) {
-        const [key, ...valueParts] = trimmed.split('=');
-        if (key && valueParts.length > 0) {
-          const value = valueParts.join('=').trim();
-          if (!process.env[key.trim()]) {
-            process.env[key.trim()] = value;
-            console.log(`🔧 Manually set ${key.trim()}: ${value.substring(0, 30)}...`);
+        const equalIndex = trimmed.indexOf('=');
+        if (equalIndex > 0) {
+          const key = trimmed.substring(0, equalIndex).trim();
+          const value = trimmed.substring(equalIndex + 1).trim();
+          if (key && value) {
+            // Remove quotes if present
+            const cleanValue = value.replace(/^["']|["']$/g, '');
+            process.env[key] = cleanValue;
+            if (key === 'MONGO_URI' || key === 'JWT_SECRET') {
+              console.log(`✅ Loaded ${key}: ${cleanValue.substring(0, 40)}...`);
+            }
+            loadedCount++;
           }
         }
       }
     }
-    console.log("🧩 MONGO_URI after manual read:", process.env.MONGO_URI ? "✅ Present" : "❌ Still missing");
+    console.log(`📦 Loaded ${loadedCount} environment variables from .env file`);
   } catch (error) {
     console.error("❌ Error reading .env file manually:", error.message);
+    // Fallback to dotenv
+    console.log("🔄 Falling back to dotenv...");
+    dotenv.config({ path: envPath, override: true });
   }
+} else {
+  // File doesn't exist, try dotenv anyway
+  console.log("⚠️ .env file not found, trying dotenv default location...");
+  dotenv.config({ override: true });
+}
+
+// Debug environment variables BEFORE connectDB
+console.log("🧩 MONGO_URI:", process.env.MONGO_URI ? `✅ Present (length: ${process.env.MONGO_URI.length})` : "❌ Missing");
+console.log("🧩 JWT_SECRET:", process.env.JWT_SECRET ? "✅ Present" : "❌ Missing");
+console.log("🧩 PORT:", process.env.PORT || "Not set (will use default 5000)");
+
+// Validate MONGO_URI before proceeding
+if (!process.env.MONGO_URI) {
+  console.error("❌ CRITICAL: MONGO_URI is not set! Cannot connect to database.");
+  console.error("📁 Expected .env file at:", envPath);
 }
 // Initialize express app
 const app = express();
