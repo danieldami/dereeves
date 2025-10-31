@@ -55,6 +55,9 @@ export const loginUser = async (req, res) => {
     try {
         const { email, password } = req.body;
         console.log("🟢 Login attempt:", email);
+        console.log("🔍 Email type:", typeof email);
+        console.log("🔍 Email length:", email?.length);
+        console.log("🔍 Email bytes:", Buffer.from(email || '').toString('hex'));
 
         // 🚀 CORRECTION: Check for missing email or password and return 400
         if (!email || !password) {
@@ -63,7 +66,14 @@ export const loginUser = async (req, res) => {
         }
         // END CORRECTION
 
+        console.log("🔍 Searching for user with email:", email);
         const user = await User.findOne({ email });
+        console.log("🔍 Query result:", user ? "User found" : "User NOT found");
+        
+        // Also try searching all users to debug
+        const allUsers = await User.find({}).select('email').limit(5);
+        console.log("🔍 Sample users in DB:", allUsers.map(u => u.email));
+        
         if (!user) {
             console.log("❌ No user found");
             return res.status(400).json({ message: "Invalid credentials" });
