@@ -80,8 +80,13 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: [process.env.CLIENT_URL, "http://localhost:3000"]
-  ,credentials: true,
+  origin: [
+    process.env.CLIENT_URL,
+    "http://localhost:3000",
+    "https://dereevesfoundations.com",
+    "https://www.dereevesfoundations.com"
+  ],
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
 }));
 app.use(express.json());
@@ -98,7 +103,12 @@ const server = createServer(app);
 // Enhanced Socket.IO with WebRTC signaling
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://127.0.0.1:3000"], // your frontend origin
+    origin: [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "https://dereevesfoundations.com",
+      "https://www.dereevesfoundations.com"
+    ],
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"]
