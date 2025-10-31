@@ -63,7 +63,7 @@ export default function DonatePage() {
         {/* Note/Alternative Action */}
         <div className="mt-8 pt-6 border-t border-gray-100">
             <p className="text-sm text-gray-500">
-                If you have already logged in, you will be redirected to the dashboardclicking "Log In".
+                If you have already logged in, you will be redirected to the dashboard clicking &quot;Log In&quot;.
             </p>
         </div>
         

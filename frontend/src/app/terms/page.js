@@ -65,7 +65,7 @@ const TermsOfService = () => {
             Disclaimer of Warranties
           </h2>
           <p className="text-gray-700">
-            The website and all content is provided on an "as is" basis without warranties of any kind. DeReeves Foundation disclaims all warranties, express or implied, to the fullest extent permitted by law.
+            The website and all content is provided on an &quot;as is&quot; basis without warranties of any kind. DeReeves Foundation disclaims all warranties, express or implied, to the fullest extent permitted by law.
           </p>
         </section>
       </div>

@@ -3,6 +3,7 @@
 "use client"; // <-- ADD THIS DIRECTIVE AT THE VERY TOP
 
 import { useState } from 'react'; // Import useState for managing mobile menu state
+import Link from 'next/link'; // Import Link for navigation
 
 // NOTE: We remove the 'next/head' import because Head is deprecated in the App Router.
 // Metadata is handled by exporting a 'metadata' object from the page.
@@ -29,9 +30,9 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo/Name */}
           <div className="flex-shrink-0">
-            <a href="/" className="text-2xl font-extrabold text-indigo-700 hover:text-indigo-900 transition duration-300">
+            <Link href="/" className="text-2xl font-extrabold text-indigo-700 hover:text-indigo-900 transition duration-300">
               DeReeves Foundation
-            </a>
+            </Link>
           </div>
           
           {/* Desktop Nav Links and Donate Button (Hidden on Mobile) */}
