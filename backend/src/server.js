@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 import cors from "cors";
 import connectDB from "./utils/db.js";
 import authRoutes from "./routes/authroutes.js";
@@ -19,11 +20,21 @@ const __dirname = path.dirname(__filename);
 // ✅ Load .env from one level above /src
 const envPath = path.resolve(__dirname, "../.env");
 console.log("📁 Loading .env from:", envPath);
+console.log("📁 __dirname:", __dirname);
 
-dotenv.config({ path: envPath, override: true });
+// Check if file exists
+console.log("📁 .env file exists:", existsSync(envPath) ? "✅ Yes" : "❌ No");
 
-// Optional debug
-console.log("🧩 Loaded MONGO_URI:", process.env.MONGO_URI ? "✅ Present" : "❌ Missing");
+const result = dotenv.config({ path: envPath, override: true });
+console.log("📁 dotenv.config result:", result.error ? `❌ Error: ${result.error.message}` : "✅ Success");
+if (result.parsed) {
+  console.log("📁 Variables parsed:", Object.keys(result.parsed).length);
+  console.log("📁 Parsed keys:", Object.keys(result.parsed));
+}
+
+// Debug environment variables
+console.log("🧩 MONGO_URI after dotenv:", process.env.MONGO_URI ? `✅ Present (length: ${process.env.MONGO_URI.length})` : "❌ Missing");
+console.log("🧩 JWT_SECRET after dotenv:", process.env.JWT_SECRET ? "✅ Present" : "❌ Missing");
 // Initialize express app
 const app = express();
 
