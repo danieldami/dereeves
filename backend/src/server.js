@@ -83,11 +83,14 @@ app.use(cors({
   origin: [
     process.env.CLIENT_URL,
     "http://localhost:3000",
+    "http://dereevesfoundations.com",
+    "http://www.dereevesfoundations.com",
     "https://dereevesfoundations.com",
     "https://www.dereevesfoundations.com"
   ],
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json());
 
