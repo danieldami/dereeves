@@ -26,9 +26,17 @@ export default function CallModal({
   const retriedRef = useRef(false);
   const remoteMediaRef = useRef(null);
   const iceStateRef = useRef('new');
+  const connectionTimeoutRef = useRef(null);
+  const callActiveRef = useRef(false);
+  const isEndingCallRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) return;
+
+    // Reset refs when modal opens
+    callActiveRef.current = false;
+    isEndingCallRef.current = false;
+    iceStateRef.current = 'new';
 
     console.log("🎬 ========== CALL MODAL OPENED ==========");
     console.log("📞 isInitiator:", isInitiator);
@@ -133,9 +141,21 @@ export default function CallModal({
               iceStateRef.current = pc.iceConnectionState;
               console.log("🌐 ICE state:", pc.iceConnectionState);
               
-              if ((pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") && !callStartTime) {
-                setCallStartTime(Date.now());
+              if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+                console.log("✅ ICE connection established successfully!");
+                callActiveRef.current = true;
                 setCallStatus("active");
+                
+                // Clear the connection timeout
+                if (connectionTimeoutRef.current) {
+                  clearTimeout(connectionTimeoutRef.current);
+                  connectionTimeoutRef.current = null;
+                  console.log("✅ Connection timeout cleared - call is active");
+                }
+                
+                if (!callStartTime) {
+                  setCallStartTime(Date.now());
+                }
               }
               
               // Log failures
@@ -193,8 +213,16 @@ export default function CallModal({
         peer.on("stream", (remoteStream) => {
           console.log("📺 ========== REMOTE STREAM RECEIVED ==========");
           console.log("📺 Tracks:", remoteStream.getTracks().map(t => t.kind));
+          callActiveRef.current = true;
           setCallStatus("active");
           setRemoteStreamReceived(true);
+          
+          // Clear the connection timeout
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+            console.log("✅ Connection timeout cleared - stream received");
+          }
           
           // Start timer when stream is received (for receiver)
           if (!callStartTime) {
@@ -261,7 +289,16 @@ export default function CallModal({
 
         peer.on("connect", () => {
           console.log("🔗 ========== PEER CONNECTED ==========");
+          callActiveRef.current = true;
           setCallStatus("active");
+          
+          // Clear the connection timeout
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+            console.log("✅ Connection timeout cleared - peer connected");
+          }
+          
           if (!callStartTime) {
             setCallStartTime(Date.now()); // Start timer if not already started
           }
@@ -367,10 +404,11 @@ export default function CallModal({
         }
 
         // Failsafe: end the call if connection not active within 30s
-        const connectionTimeout = setTimeout(() => {
-          if (callStatus !== 'active') {
+        connectionTimeoutRef.current = setTimeout(() => {
+          if (!callActiveRef.current) {
             console.warn('⏰ Connection not established in time - ending call');
             console.warn('⏰ Final ICE state:', iceStateRef.current);
+            console.warn('⏰ callActiveRef:', callActiveRef.current);
             
             // Provide helpful error message based on state
             let errorMsg = 'Connection failed to establish. Please try again.';
@@ -382,6 +420,8 @@ export default function CallModal({
             
             alert(errorMsg);
             endCall();
+          } else {
+            console.log('✅ Connection timeout passed - call is active');
           }
         }, 30000);
 
@@ -445,8 +485,21 @@ export default function CallModal({
         };
 
         const handleCallEnded = () => {
+          if (isEndingCallRef.current) {
+            console.log("⚠️ Already ending call, ignoring duplicate callEnded event");
+            return;
+          }
+          
           console.log("🔴 Call ended by other user");
+          isEndingCallRef.current = true;
           setCallStatus("ended");
+          
+          // Clear connection timeout if still active
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+          
           // Clean up immediately when call is ended by other party
           if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
@@ -456,7 +509,11 @@ export default function CallModal({
             peerRef.current.destroy();
             peerRef.current = null;
           }
-          setTimeout(() => endCall(), 1000);
+          
+          // Close modal without emitting endCall again
+          setTimeout(() => {
+            onClose();
+          }, 500);
         };
 
         const handleCallTimeout = () => {
@@ -486,7 +543,13 @@ export default function CallModal({
         socket.on("callEnded", handleCallEnded);
 
         return () => {
-          try { clearTimeout(connectionTimeout); } catch (_) {}
+          // Clear the connection timeout
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+          
+          // Remove socket listeners
           if (isInitiator) {
             socket.off("callAccepted", handleCallAccepted);
             socket.off("callRejected", handleCallRejected);
@@ -541,7 +604,21 @@ export default function CallModal({
   }, [callStartTime, callStatus]);
 
   const endCall = () => {
+    if (isEndingCallRef.current) {
+      console.log("⚠️ Already ending call, skipping duplicate endCall");
+      return;
+    }
+    
     console.log("📴 Ending call...");
+    isEndingCallRef.current = true;
+    
+    // Clear connection timeout if still active
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+    
+    // Only emit endCall socket event (don't emit if already received callEnded)
     socket.emit("endCall", { to: otherUser._id });
     
     if (streamRef.current) {
