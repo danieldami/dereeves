@@ -570,7 +570,7 @@ const handleRejectCall = () => {
               </div>
               
               <div className="flex-1">
-                <h1 className="text-xl font-bold">Chat with Admin</h1>
+                <h1 className="text-xl font-bold">Chat with dannyyyy</h1>
                 <p className="text-sm opacity-90">
                   {isAdminOnline ? (
                     <span className="text-green-300">● Online</span>
