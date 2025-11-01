@@ -1,0 +1,47 @@
+===================================================================
+    CRITICAL: CREATE THIS FILE TO FIX YOUR CALLING ISSUE
+===================================================================
+
+1. Navigate to your frontend directory:
+   C:\Users\HP\dereeves\frontend
+
+2. Create a new file named: .env.local
+   (Yes, it starts with a dot)
+
+3. Paste this EXACT content into the file:
+
+------- START OF FILE CONTENT -------
+NEXT_PUBLIC_TURN_URL=turn:openrelay.metered.ca:80
+NEXT_PUBLIC_TURN_USERNAME=openrelayproject
+NEXT_PUBLIC_TURN_CREDENTIAL=openrelayproject
+------- END OF FILE CONTENT -------
+
+4. Save the file
+
+5. Restart your frontend server:
+   - Stop the current server (Ctrl+C)
+   - Run: npm run dev
+
+6. Test your calls - they should work now!
+
+===================================================================
+
+TO CREATE THE FILE USING POWERSHELL:
+
+cd C:\Users\HP\dereeves\frontend
+@"
+NEXT_PUBLIC_TURN_URL=turn:openrelay.metered.ca:80
+NEXT_PUBLIC_TURN_USERNAME=openrelayproject
+NEXT_PUBLIC_TURN_CREDENTIAL=openrelayproject
+"@ | Out-File -FilePath .env.local -Encoding utf8
+
+===================================================================
+
+OR CREATE MANUALLY:
+1. Open Notepad
+2. Copy the 3 lines above
+3. Save as: C:\Users\HP\dereeves\frontend\.env.local
+   (Make sure to select "All Files" in the save dialog)
+
+===================================================================
+

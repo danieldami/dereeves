@@ -427,6 +427,7 @@ useEffect(() => {
         
         const isUserOnline = onlineUserIdsSet.has(selectedUser._id);
         console.log(`📞 [ADMIN] Attempting to call ${selectedUser.name} (${selectedUser._id})`);
+        console.log(`📞 [ADMIN] Call type: ${type}`);
         console.log(`📞 [ADMIN] Is user online?`, isUserOnline);
         console.log(`📞 [ADMIN] Current online set:`, Array.from(onlineUserIdsSet));
         
@@ -437,14 +438,17 @@ useEffect(() => {
         
         console.log("📞 [ADMIN] Starting call to user:", selectedUser.name);
         setCallTargetUser(selectedUser);
-        setCallType("outgoing");
+        setCallType(type); // Fixed: should be the call type (audio/video), not "outgoing"
+        // Clear any previous incoming call data
+        window.incomingCallSignal = null;
+        window.incomingCallFrom = null;
         setIsCallModalOpen(true);
     };
 
     const closeCall = () => {
         console.log("📴 [ADMIN] Closing call modal");
         setIsCallModalOpen(false);
-        setCallType("outgoing");
+        setCallType("audio"); // Reset to default call type
         setCallTargetUser(null);
         window.incomingCallSignal = null;
         window.incomingCallFrom = null;
