@@ -39,6 +39,11 @@ export default function CallModal({
 
     const startCall = async () => {
       try {
+        // Check if getUserMedia is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Camera/microphone access is not available. Please use HTTPS or check browser compatibility.");
+        }
+        
         console.log("🎤 Requesting media permissions...");
         const stream = await navigator.mediaDevices.getUserMedia({
           video: callType === "video" ? { 
@@ -70,14 +75,43 @@ export default function CallModal({
           { urls: "stun:stun3.l.google.com:19302" },
           { urls: "stun:stun4.l.google.com:19302" }
         ];
+        
         const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
         const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
         const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
+        
         if (turnUrl && turnUser && turnCred) {
           console.log("🧭 Using TURN server from env:", turnUrl);
-          iceServers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+          // Add TURN server with both UDP and TCP for better connectivity
+          iceServers.push(
+            { 
+              urls: turnUrl, 
+              username: turnUser, 
+              credential: turnCred 
+            }
+          );
+          
+          // If it's a UDP TURN URL, also try TCP variant
+          if (turnUrl.includes(':80') || turnUrl.includes(':3478')) {
+            const tcpTurnUrl = turnUrl.replace(':80', ':443').replace(':3478', ':5349');
+            if (tcpTurnUrl !== turnUrl) {
+              iceServers.push(
+                { 
+                  urls: tcpTurnUrl, 
+                  username: turnUser, 
+                  credential: turnCred 
+                }
+              );
+              console.log("🧭 Also using TCP TURN server:", tcpTurnUrl);
+            }
+          }
         } else {
-          console.log("🧭 No TURN credentials provided. Using STUN only.");
+          console.warn("⚠️ No TURN credentials provided. Using STUN only.");
+          console.warn("⚠️ This may cause connection failures for users behind restrictive NATs.");
+          console.warn("💡 Configure TURN server in .env.local:");
+          console.warn("   NEXT_PUBLIC_TURN_URL=turn:your-server.com:3478");
+          console.warn("   NEXT_PUBLIC_TURN_USERNAME=your-username");
+          console.warn("   NEXT_PUBLIC_TURN_CREDENTIAL=your-credential");
         }
 
         const peer = new Peer({
@@ -98,13 +132,37 @@ export default function CallModal({
             pc.oniceconnectionstatechange = () => {
               iceStateRef.current = pc.iceConnectionState;
               console.log("🌐 ICE state:", pc.iceConnectionState);
+              
               if ((pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") && !callStartTime) {
                 setCallStartTime(Date.now());
+                setCallStatus("active");
+              }
+              
+              // Log failures
+              if (pc.iceConnectionState === "failed") {
+                console.error("❌ ICE connection failed - connection cannot be established");
+                console.log("💡 Tip: This usually means TURN server is needed for NAT traversal");
+              } else if (pc.iceConnectionState === "disconnected") {
+                console.warn("⚠️ ICE connection disconnected - may reconnect automatically");
+              }
+            };
+            
+            // Also monitor ICE gathering state
+            pc.onicegatheringstatechange = () => {
+              console.log("🧊 ICE gathering state:", pc.iceGatheringState);
+            };
+            
+            // Log ICE candidates for debugging
+            pc.onicecandidate = (event) => {
+              if (event.candidate) {
+                console.log("🧊 ICE candidate:", event.candidate.type, event.candidate.candidate);
+              } else {
+                console.log("🧊 ICE gathering complete");
               }
             };
           }
         } catch (e) {
-          // ignore
+          console.warn("⚠️ Could not access peer connection internals:", e);
         }
 
         peer.on("signal", (signal) => {
@@ -308,14 +366,24 @@ export default function CallModal({
           });
         }
 
-        // Failsafe: end the call if connection not active within 20s
+        // Failsafe: end the call if connection not active within 30s
         const connectionTimeout = setTimeout(() => {
           if (callStatus !== 'active') {
             console.warn('⏰ Connection not established in time - ending call');
-            alert('Connection failed to establish. Please try again.');
+            console.warn('⏰ Final ICE state:', iceStateRef.current);
+            
+            // Provide helpful error message based on state
+            let errorMsg = 'Connection failed to establish. Please try again.';
+            if (iceStateRef.current === 'failed' || iceStateRef.current === 'disconnected') {
+              errorMsg += '\n\nPossible causes:\n• Network/firewall restrictions\n• Both users behind restrictive NAT\n• TURN server needed for connection';
+            } else if (iceStateRef.current === 'checking' || iceStateRef.current === 'new') {
+              errorMsg += '\n\nConnection is still trying to establish. Please ensure:\n• Both users have stable internet\n• Firewall allows WebRTC connections';
+            }
+            
+            alert(errorMsg);
             endCall();
           }
-        }, 20000);
+        }, 30000);
 
         // Socket event handlers
         const handleCallAccepted = ({ signal }) => {
