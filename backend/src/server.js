@@ -339,12 +339,27 @@ io.on("connection", (socket) => {
   });
 
   // End call
-  socket.on("endCall", ({ to }) => {
-    console.log(`🔴 Call ended - notifying ${to}`);
+  socket.on("endCall", ({ to, from }) => {
+    console.log(`🔴 ========== END CALL REQUEST ==========`);
+    console.log(`🔴 From socket: ${socket.id}`);
+    console.log(`🔴 To user: ${to}`);
+    console.log(`🔴 From user: ${from || 'not provided'}`);
+    console.log(`🔴 Current online users:`, Array.from(onlineUsers.keys()));
     
     const otherUserData = onlineUsers.get(to);
+    console.log(`🔴 Other user data:`, otherUserData);
+    
     if (otherUserData && otherUserData.socketId) {
-      io.to(otherUserData.socketId).emit("callEnded");
+      console.log(`✅ Emitting callEnded to socket: ${otherUserData.socketId}`);
+      io.to(otherUserData.socketId).emit("callEnded", { from: from || socket.id });
+      console.log(`✅ callEnded emitted successfully`);
+    } else {
+      console.log(`❌ Could not find user ${to} in online users`);
+      console.log(`❌ Available users:`, Array.from(onlineUsers.entries()).map(([id, data]) => ({ id, socketId: data.socketId })));
+      
+      // Fallback: broadcast to all sockets (less efficient but ensures delivery)
+      console.log(`⚠️ Broadcasting callEnded to all connected sockets as fallback`);
+      socket.broadcast.emit("callEnded", { to, from: from || socket.id });
     }
 
     // Remove from active calls
@@ -354,6 +369,7 @@ io.on("connection", (socket) => {
         console.log(`🔴 Removed call ${callId} from active calls`);
       }
     }
+    console.log(`🔴 ====================================`);
   });
 
   // ICE candidate exchange

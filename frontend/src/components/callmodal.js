@@ -484,13 +484,17 @@ export default function CallModal({
           setTimeout(() => endCall(), 1000);
         };
 
-        const handleCallEnded = () => {
+        const handleCallEnded = (data) => {
           if (isEndingCallRef.current) {
             console.log("⚠️ Already ending call, ignoring duplicate callEnded event");
             return;
           }
           
-          console.log("🔴 Call ended by other user");
+          console.log("🔴 ========== CALL ENDED BY OTHER USER ==========");
+          console.log("🔴 Event data:", data);
+          console.log("🔴 Current user:", currentUser._id);
+          console.log("🔴 Other user:", otherUser._id);
+          
           isEndingCallRef.current = true;
           setCallStatus("ended");
           
@@ -502,14 +506,17 @@ export default function CallModal({
           
           // Clean up immediately when call is ended by other party
           if (streamRef.current) {
+            console.log("🔴 Stopping local stream tracks");
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
           }
           if (peerRef.current && !peerRef.current.destroyed) {
+            console.log("🔴 Destroying peer connection");
             peerRef.current.destroy();
             peerRef.current = null;
           }
           
+          console.log("🔴 Closing modal in 500ms");
           // Close modal without emitting endCall again
           setTimeout(() => {
             onClose();
@@ -610,6 +617,8 @@ export default function CallModal({
     }
     
     console.log("📴 Ending call...");
+    console.log("📴 From:", currentUser._id);
+    console.log("📴 To:", otherUser._id);
     isEndingCallRef.current = true;
     
     // Clear connection timeout if still active
@@ -618,8 +627,12 @@ export default function CallModal({
       connectionTimeoutRef.current = null;
     }
     
-    // Only emit endCall socket event (don't emit if already received callEnded)
-    socket.emit("endCall", { to: otherUser._id });
+    // Emit endCall socket event with both to and from
+    socket.emit("endCall", { 
+      to: otherUser._id,
+      from: currentUser._id 
+    });
+    console.log("✅ endCall event emitted to backend");
     
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());

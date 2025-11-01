@@ -336,9 +336,26 @@ useEffect(() => {
             console.log("📞 [ADMIN] Showing incoming call modal");
         };
 
+        // Global handler for callEnded - ensures it's always received even if CallModal unmounts
+        const handleCallEndedGlobal = (data) => {
+            console.log("🔴 [ADMIN] Global callEnded received:", data);
+            
+            // If call modal is open, it will handle this
+            // This is just a safety net to ensure modal closes if it's stuck
+            if (isCallModalOpen) {
+                console.log("🔴 [ADMIN] Closing call modal due to callEnded event");
+                setIsCallModalOpen(false);
+            }
+        };
+
         socket.on("incomingCall", handleIncomingCall);
-        return () => socket.off("incomingCall", handleIncomingCall);
-    }, [users]);
+        socket.on("callEnded", handleCallEndedGlobal);
+        
+        return () => {
+            socket.off("incomingCall", handleIncomingCall);
+            socket.off("callEnded", handleCallEndedGlobal);
+        };
+    }, [users, isCallModalOpen]);
 
     // ----------------------------------------------------------------
     // 🎯 POLLING: Unread counts
