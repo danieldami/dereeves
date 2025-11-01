@@ -23,15 +23,40 @@ export default function AdminDashboard() {
     const [callTargetUser, setCallTargetUser] = useState(null);
 
     const messagesEndRef = useRef(null);
+    const messagesContainerRef = useRef(null);
     const pollingIntervalRef = useRef(null);
+    const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+    const userScrolledRef = useRef(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    // Check if user is near the bottom of the chat
+    const isNearBottom = () => {
+        if (!messagesContainerRef.current) return true;
+        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+        const threshold = 150; // pixels from bottom
+        return scrollHeight - scrollTop - clientHeight < threshold;
+    };
+
+    // Handle scroll events to detect manual scrolling
+    const handleScroll = () => {
+        if (messagesContainerRef.current) {
+            const nearBottom = isNearBottom();
+            setShouldAutoScroll(nearBottom);
+            if (!nearBottom) {
+                userScrolledRef.current = true;
+            }
+        }
+    };
+
+    // Auto-scroll only if user is near bottom or hasn't manually scrolled up
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
+        if (shouldAutoScroll) {
+            scrollToBottom();
+        }
+    }, [messages, shouldAutoScroll]);
 
     const fetchUnreadCounts = async () => {
         try {
@@ -631,7 +656,11 @@ useEffect(() => {
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                        <div 
+                            ref={messagesContainerRef}
+                            onScroll={handleScroll}
+                            className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50"
+                        >
                             {loading ? (
                                 <div className="text-center text-black">Loading messages...</div>
                             ) : messages.length === 0 ? (

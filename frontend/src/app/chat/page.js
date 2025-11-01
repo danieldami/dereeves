@@ -162,14 +162,39 @@ useEffect(() => {
   const [callDirection, setCallDirection] = useState("outgoing");
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const userScrolledRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Check if user is near the bottom of the chat
+  const isNearBottom = () => {
+    if (!messagesContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    const threshold = 150; // pixels from bottom
+    return scrollHeight - scrollTop - clientHeight < threshold;
+  };
+
+  // Handle scroll events to detect manual scrolling
+  const handleScroll = () => {
+    if (messagesContainerRef.current) {
+      const nearBottom = isNearBottom();
+      setShouldAutoScroll(nearBottom);
+      if (!nearBottom) {
+        userScrolledRef.current = true;
+      }
+    }
+  };
+
+  // Auto-scroll only if user is near bottom or hasn't manually scrolled up
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (shouldAutoScroll) {
+      scrollToBottom();
+    }
+  }, [messages, shouldAutoScroll]);
 
   const fetchUnreadCount = async () => {
     try {
@@ -642,7 +667,11 @@ const handleRejectCall = () => {
       </div>
 
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 pt-28 pb-28">
+      <div 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 pt-28 pb-28"
+      >
         <div className="max-w-4xl mx-auto space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-black mt-10">
