@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import api from "@/utils/api";
 import socket from "@/utils/socket";
 import CallModal from "@/components/callmodal";
+import IncomingCallModal from "@/components/incomingcallmodal";
 
 export default function AdminDashboard() {
     const [users, setUsers] = useState([]);
@@ -21,6 +22,8 @@ export default function AdminDashboard() {
     const [isCallModalOpen, setIsCallModalOpen] = useState(false);
     const [callType, setCallType] = useState("outgoing");
     const [callTargetUser, setCallTargetUser] = useState(null);
+    const [incomingCall, setIncomingCall] = useState(null);
+    const [showIncomingModal, setShowIncomingModal] = useState(false);
 
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -317,14 +320,20 @@ useEffect(() => {
             const caller = users.find(u => u._id === from) || { _id: from, name, email: "" };
             console.log("📞 [ADMIN] Caller info:", caller);
             
-            // Store signal globally for CallModal to access
-            window.incomingCallSignal = signal;
-            window.incomingCallFrom = from;
+            // Store the incoming call data and show the incoming call modal
+            const callData = {
+                signal,
+                from,
+                name: caller.name || name,
+                email: caller.email || "",
+                callType: incomingCallType || "audio",
+                callId,
+                caller
+            };
             
-            setCallTargetUser(caller);
-            setCallType(incomingCallType || "audio");
-            setIsCallModalOpen(true);
-            console.log("📞 [ADMIN] Call modal opened for incoming call");
+            setIncomingCall(callData);
+            setShowIncomingModal(true);
+            console.log("📞 [ADMIN] Showing incoming call modal");
         };
 
         socket.on("incomingCall", handleIncomingCall);
@@ -479,6 +488,30 @@ useEffect(() => {
         window.incomingCallFrom = null;
     };
 
+    const handleAcceptCall = () => {
+        if (!incomingCall) return;
+        console.log("✅ [ADMIN] Accepting call from:", incomingCall.from);
+        
+        // Store signal globally for CallModal to access
+        window.incomingCallSignal = incomingCall.signal;
+        window.incomingCallFrom = incomingCall.from;
+        
+        // Close incoming modal and open call modal
+        setShowIncomingModal(false);
+        setCallTargetUser(incomingCall.caller);
+        setCallType(incomingCall.callType || "audio");
+        setIsCallModalOpen(true);
+    };
+
+    const handleRejectCall = () => {
+        if (!incomingCall) return;
+        console.log("❌ [ADMIN] Rejecting call from:", incomingCall.from);
+        
+        socket.emit("rejectCall", { to: incomingCall.from });
+        setShowIncomingModal(false);
+        setIncomingCall(null);
+    };
+
     if (!admin) {
         return (
             <div className="flex items-center justify-center h-screen">
@@ -489,6 +522,20 @@ useEffect(() => {
 
     return (
         <div className="flex h-screen bg-gray-50">
+            {/* Incoming Call Modal */}
+            {showIncomingModal && incomingCall && (
+                <IncomingCallModal
+                    caller={{
+                        name: incomingCall.name,
+                        email: incomingCall.email
+                    }}
+                    callType={incomingCall.callType || "audio"}
+                    onAccept={handleAcceptCall}
+                    onReject={handleRejectCall}
+                />
+            )}
+
+            {/* Call Modal */}
             {isCallModalOpen && callTargetUser && (
                 <CallModal
                     isOpen={isCallModalOpen}
