@@ -610,7 +610,17 @@ const handleRejectCall = () => {
               </div>
               
               <div className="flex-1">
-                <h1 className="text-xl font-bold">Chat with dannyyyy</h1>
+                <h1 className="text-xl font-bold flex items-center gap-2">
+                  Keanu Charles Reeves
+                  <svg 
+                    className="w-5 h-5 text-blue-400 fill-current" 
+                    viewBox="0 0 24 24" 
+                    xmlns="http://www.w3.org/2000/svg"
+                    title="Verified"
+                  >
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </h1>
                 <p className="text-sm opacity-90">
                   {isAdminOnline ? (
                     <span className="text-green-300">● Online</span>
