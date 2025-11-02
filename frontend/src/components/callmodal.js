@@ -79,6 +79,14 @@ export default function CallModal({
             readyState: track.readyState
           });
           
+          // WARNING: Check for virtual audio devices that might cause issues
+          if (track.kind === 'audio' && track.label) {
+            if (track.label.includes('Voicemod') || track.label.includes('Virtual Audio')) {
+              console.warn('⚠️ Virtual audio device detected (Voicemod, etc.)');
+              console.warn('⚠️ If audio doesn\'t work, try using your real microphone instead.');
+            }
+          }
+          
           // WARNING: If muted is true, the microphone hardware/OS is muting it
           if (track.kind === 'audio' && track.muted) {
             console.error('❌ WARNING: Your microphone is MUTED at the hardware/OS level!');
@@ -109,6 +117,38 @@ export default function CallModal({
           track.onended = () => {
             console.warn(`⚠️ Local audio track ${idx} ENDED.`);
           };
+          
+          // Check if microphone is actually picking up audio after 2 seconds
+          setTimeout(() => {
+            try {
+              if (window.AudioContext && !track.muted && track.readyState === 'live') {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const streamNode = audioContext.createMediaStreamSource(new MediaStream([track]));
+                const analyser = audioContext.createAnalyser();
+                streamNode.connect(analyser);
+                analyser.fftSize = 256;
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(dataArray);
+                const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                console.log(`🎤 YOUR MICROPHONE audio level:`, average.toFixed(2), average > 0 ? '✅ (mic is picking up sound!)' : '❌ (SILENCE - speak into your mic!)');
+                
+                if (average === 0) {
+                  console.error('❌ Your microphone is not picking up any audio!');
+                  console.error('❌ Possible issues:');
+                  console.error('   - Microphone is muted in Windows/Mac sound settings');
+                  console.error('   - Wrong microphone selected');
+                  console.error('   - Microphone volume is set to 0');
+                  console.error('   - Virtual audio device (Voicemod) is not configured correctly');
+                }
+                
+                // Clean up
+                streamNode.disconnect();
+                audioContext.close();
+              }
+            } catch (e) {
+              console.warn('⚠️ Could not measure local audio level:', e.message);
+            }
+          }, 2000);
         });
         
         if (myVideo.current) {
@@ -387,6 +427,27 @@ export default function CallModal({
                               muted: track.muted,
                               readyState: track.readyState
                             });
+                            
+                            // Try to check if audio is actually flowing using Web Audio API
+                            try {
+                              if (window.AudioContext && !track.muted && track.readyState === 'live') {
+                                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                                const streamNode = audioContext.createMediaStreamSource(new MediaStream([track]));
+                                const analyser = audioContext.createAnalyser();
+                                streamNode.connect(analyser);
+                                analyser.fftSize = 256;
+                                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                                analyser.getByteFrequencyData(dataArray);
+                                const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                                console.log(`    🎚️ Audio level on track ${i}:`, average.toFixed(2), average > 0 ? '(audio detected!)' : '(SILENCE - no audio data!)');
+                                
+                                // Clean up
+                                streamNode.disconnect();
+                                audioContext.close();
+                              }
+                            } catch (e) {
+                              console.warn('    ⚠️ Could not measure audio level:', e.message);
+                            }
                           });
                         }
                       }, 2000);
