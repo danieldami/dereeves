@@ -626,15 +626,25 @@ const handleRejectCall = () => {
               </div>
               
               <div className="flex-1">
-                <h1 className="text-xl font-bold flex items-center gap-2">
+                <h1 className="text-xl font-bold flex items-center gap-1">
                   Keanu Charles Reeves
                   <svg 
-                    className="w-5 h-5 text-blue-400 fill-current" 
-                    viewBox="0 0 24 24" 
+                    className="w-6 h-6 inline-block flex-shrink-0" 
+                    viewBox="0 0 40 40" 
+                    fill="none" 
                     xmlns="http://www.w3.org/2000/svg"
                     title="Verified"
                   >
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                    {/* Instagram-style verified badge */}
+                    <circle cx="20" cy="20" r="18" fill="#1DA1F2" />
+                    <path 
+                      d="M16 20l3 3 6-6" 
+                      stroke="white" 
+                      strokeWidth="3" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
                   </svg>
                 </h1>
                 <p className="text-sm opacity-90">
