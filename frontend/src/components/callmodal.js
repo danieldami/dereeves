@@ -638,11 +638,7 @@ export default function CallModal({
                   : "bg-white/30 backdrop-blur-sm"
               }`}
             >
-              {isMuted ? (
-                <MicOff className="w-7 h-7 text-white" strokeWidth={2.5} />
-              ) : (
-                <Mic className="w-7 h-7 text-white" strokeWidth={2.5} />
-              )}
+                {isMuted ? "🔇" : "🎤"}
             </button>
 
             {/* End call button */}
@@ -650,7 +646,7 @@ export default function CallModal({
               onClick={endCall}
               className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center transition-all hover:bg-red-600 shadow-lg"
             >
-              <PhoneOff className="w-7 h-7 text-white" strokeWidth={2.5} />
+              ❌
             </button>
 
             {/* Video toggle button */}
@@ -663,11 +659,7 @@ export default function CallModal({
                     : "bg-white/30 backdrop-blur-sm"
                 }`}
               >
-                {isVideoOff ? (
-                  <VideoOff className="w-7 h-7 text-white" strokeWidth={2.5} />
-                ) : (
-                  <Video className="w-7 h-7 text-white" strokeWidth={2.5} />
-                )}
+                {isVideoOff ? "📹" : "📷"}
               </button>
             )}
           </div>
