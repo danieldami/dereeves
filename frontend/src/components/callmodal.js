@@ -71,13 +71,19 @@ export default function CallModal({
         stream.getTracks().forEach(track => {
           // Explicitly enable all tracks
           track.enabled = true;
-          console.log(`📊 Track ${track.kind}:`, {
+          console.log(`📊 LOCAL Track ${track.kind}:`, {
             id: track.id,
             label: track.label,
             enabled: track.enabled,
             muted: track.muted,
             readyState: track.readyState
           });
+          
+          // WARNING: If muted is true, the microphone hardware/OS is muting it
+          if (track.kind === 'audio' && track.muted) {
+            console.error('❌ WARNING: Your microphone is MUTED at the hardware/OS level!');
+            console.error('❌ Please check your system microphone settings or browser permissions.');
+          }
         });
         
         streamRef.current = stream;
@@ -91,6 +97,19 @@ export default function CallModal({
           return;
         }
         console.log(`✅ ${audioTracks.length} audio track(s) confirmed in local stream`);
+        
+        // Monitor the local audio track for mute changes
+        audioTracks.forEach((track, idx) => {
+          track.onmute = () => {
+            console.error(`❌ Local audio track ${idx} was MUTED! Check your microphone.`);
+          };
+          track.onunmute = () => {
+            console.log(`✅ Local audio track ${idx} was UNMUTED.`);
+          };
+          track.onended = () => {
+            console.warn(`⚠️ Local audio track ${idx} ENDED.`);
+          };
+        });
         
         if (myVideo.current) {
           myVideo.current.srcObject = stream;
@@ -243,16 +262,40 @@ export default function CallModal({
           
           if (otherVideo.current) {
             try {
-              // CRITICAL: Enable all audio tracks in the remote stream
+              // CRITICAL: Enable AND monitor all audio tracks in the remote stream
               const audioTracks = remoteStream.getAudioTracks();
               console.log('🔊 Remote audio tracks:', audioTracks.length);
               audioTracks.forEach((track, idx) => {
-                track.enabled = true; // Explicitly enable
-                console.log(`🔊 Audio track ${idx}:`, {
+                console.log(`🔊 Remote audio track ${idx} INITIAL STATE:`, {
                   enabled: track.enabled,
                   muted: track.muted,
                   readyState: track.readyState,
                   label: track.label
+                });
+                
+                track.enabled = true; // Explicitly enable
+                
+                // Monitor remote track for mute/unmute events
+                track.onmute = () => {
+                  console.error(`❌ REMOTE audio track ${idx} was MUTED! (sender's mic is muted)`);
+                };
+                track.onunmute = () => {
+                  console.log(`✅ REMOTE audio track ${idx} was UNMUTED! (sender's mic is active)`);
+                };
+                track.onended = () => {
+                  console.warn(`⚠️ REMOTE audio track ${idx} ENDED.`);
+                };
+                
+                // CRITICAL: If track is muted, warn the user
+                if (track.muted) {
+                  console.error('❌ Remote track is muted! The other person\'s microphone might be muted or not working.');
+                  console.error('❌ Ask the other person to check their microphone permissions and hardware mute button.');
+                }
+                
+                console.log(`🔊 Remote audio track ${idx} FINAL STATE:`, {
+                  enabled: track.enabled,
+                  muted: track.muted,
+                  readyState: track.readyState
                 });
               });
               
