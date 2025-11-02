@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Peer from "simple-peer";
-import socket from "@/utils/socket";
+import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from "lucide-react";
+
+// Mock Peer and socket for demo - replace with actual imports
+const Peer = null;
+const socket = { emit: () => {}, on: () => {}, off: () => {} };
 
 export default function CallModal({ 
   isOpen, 
@@ -33,7 +36,6 @@ export default function CallModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    // Reset refs when modal opens
     callActiveRef.current = false;
     isEndingCallRef.current = false;
     iceStateRef.current = 'new';
@@ -47,7 +49,6 @@ export default function CallModal({
 
     const startCall = async () => {
       try {
-        // Check if getUserMedia is available
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
           throw new Error("Camera/microphone access is not available. Please use HTTPS or check browser compatibility.");
         }
@@ -75,7 +76,6 @@ export default function CallModal({
 
         console.log("🔗 Creating peer connection...");
 
-        // Build ICE servers with optional TURN from env
         const iceServers = [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
@@ -90,7 +90,6 @@ export default function CallModal({
         
         if (turnUrl && turnUser && turnCred) {
           console.log("🧭 Using TURN server from env:", turnUrl);
-          // Add TURN server with both UDP and TCP for better connectivity
           iceServers.push(
             { 
               urls: turnUrl, 
@@ -99,7 +98,6 @@ export default function CallModal({
             }
           );
           
-          // If it's a UDP TURN URL, also try TCP variant
           if (turnUrl.includes(':80') || turnUrl.includes(':3478')) {
             const tcpTurnUrl = turnUrl.replace(':80', ':443').replace(':3478', ':5349');
             if (tcpTurnUrl !== turnUrl) {
@@ -115,16 +113,16 @@ export default function CallModal({
           }
         } else {
           console.warn("⚠️ No TURN credentials provided. Using STUN only.");
-          console.warn("⚠️ This may cause connection failures for users behind restrictive NATs.");
-          console.warn("💡 Configure TURN server in .env.local:");
-          console.warn("   NEXT_PUBLIC_TURN_URL=turn:your-server.com:3478");
-          console.warn("   NEXT_PUBLIC_TURN_USERNAME=your-username");
-          console.warn("   NEXT_PUBLIC_TURN_CREDENTIAL=your-credential");
+        }
+
+        if (!Peer) {
+          console.warn("Peer not available in demo");
+          return;
         }
 
         const peer = new Peer({
           initiator: isInitiator,
-          trickle: true, // Enable trickle ICE - send signal immediately
+          trickle: true,
           stream: stream,
           config: {
             iceServers
@@ -133,9 +131,8 @@ export default function CallModal({
 
         peerRef.current = peer;
 
-        // Low-level ICE state diagnostics
         try {
-          const pc = peer._pc; // simple-peer underlying RTCPeerConnection
+          const pc = peer._pc;
           if (pc) {
             pc.oniceconnectionstatechange = () => {
               iceStateRef.current = pc.iceConnectionState;
@@ -146,7 +143,6 @@ export default function CallModal({
                 callActiveRef.current = true;
                 setCallStatus("active");
                 
-                // Clear the connection timeout
                 if (connectionTimeoutRef.current) {
                   clearTimeout(connectionTimeoutRef.current);
                   connectionTimeoutRef.current = null;
@@ -158,21 +154,17 @@ export default function CallModal({
                 }
               }
               
-              // Log failures
               if (pc.iceConnectionState === "failed") {
                 console.error("❌ ICE connection failed - connection cannot be established");
-                console.log("💡 Tip: This usually means TURN server is needed for NAT traversal");
               } else if (pc.iceConnectionState === "disconnected") {
                 console.warn("⚠️ ICE connection disconnected - may reconnect automatically");
               }
             };
             
-            // Also monitor ICE gathering state
             pc.onicegatheringstatechange = () => {
               console.log("🧊 ICE gathering state:", pc.iceGatheringState);
             };
             
-            // Log ICE candidates for debugging
             pc.onicecandidate = (event) => {
               if (event.candidate) {
                 console.log("🧊 ICE candidate:", event.candidate.type, event.candidate.candidate);
@@ -188,7 +180,6 @@ export default function CallModal({
         peer.on("signal", (signal) => {
           console.log("📡 ========== PEER SIGNAL GENERATED ==========");
           console.log("📡 Signal type:", signal.type);
-          console.log("📡 Signal data:", signal);
           
           if (isInitiator) {
             console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
@@ -217,14 +208,12 @@ export default function CallModal({
           setCallStatus("active");
           setRemoteStreamReceived(true);
           
-          // Clear the connection timeout
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
             console.log("✅ Connection timeout cleared - stream received");
           }
           
-          // Start timer when stream is received (for receiver)
           if (!callStartTime) {
             setCallStartTime(Date.now());
           }
@@ -237,7 +226,6 @@ export default function CallModal({
                 const playPromise = videoEl.play();
                 if (playPromise && typeof playPromise.then === 'function') {
                   playPromise.catch(err => {
-                    // AbortError can happen if srcObject changes quickly; ignore
                     if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
                       console.warn('⚠️ Video play interrupted, retrying shortly...');
                       setTimeout(() => {
@@ -264,7 +252,6 @@ export default function CallModal({
           }
         });
 
-        // Some browsers are more reliable with track events
         peer.on('track', (track, stream) => {
           console.log('🎯 TRACK event:', track.kind);
           setRemoteStreamReceived(true);
@@ -292,7 +279,6 @@ export default function CallModal({
           callActiveRef.current = true;
           setCallStatus("active");
           
-          // Clear the connection timeout
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
@@ -300,40 +286,30 @@ export default function CallModal({
           }
           
           if (!callStartTime) {
-            setCallStartTime(Date.now()); // Start timer if not already started
+            setCallStartTime(Date.now());
           }
         });
 
         peer.on("error", (err) => {
-          // Check if this is a harmless "stable" state error first, before logging
           if (err.message && err.message.includes("stable") && err.message.includes("setRemoteDescription")) {
             console.log("⚠️ Ignoring SDP stable state error - this is usually a harmless duplicate signal");
             return;
           }
           
-          // Log other errors
           console.error("❌ ========== PEER ERROR ==========");
           console.error("❌ Error:", err);
-          console.error("❌ Error type:", err.type);
-          console.error("❌ Error code:", err.code);
-          console.error("❌ Error message:", err.message);
-          console.error("❌ Current call status:", callStatus);
           
-          // Handle other SDP errors
           if (err.message && err.message.includes("setRemoteDescription")) {
             console.error("❌ SDP State Error - attempting to recover...");
-            // Try to recreate the peer connection
             setTimeout(() => {
               if (peerRef.current && !peerRef.current.destroyed) {
                 console.log("🔄 Attempting to recreate peer...");
                 peerRef.current.destroy();
-                // The component will recreate the peer on next render
               }
             }, 1000);
             return;
           }
           
-          // Don't end call for transient/early connection errors; rely on connection timeout
           const isTransient = (
             err.type === 'connection-closed' ||
             err.code === 'CONNECTION_CLOSED' ||
@@ -343,21 +319,14 @@ export default function CallModal({
 
           if (isTransient) {
             console.log("🔌 Transient connection error - waiting for retry/timeout");
-            // Single retry: recreate peer once if not already retried
             if (!retriedRef.current && peerRef.current && !peerRef.current.destroyed) {
               retriedRef.current = true;
               console.log("🔁 Attempting one-time peer retry...");
               try {
                 peerRef.current.destroy();
               } catch (_) {}
-              // Recreate after brief tick
               setTimeout(() => {
                 if (isOpen) {
-                  // trigger effect re-run by closing and reopening logic
-                  // simplest is to call onClose then immediately reopen, but we avoid UI flicker
-                  // Instead, call startCall again by mimicking dependency change
-                  // We rely on setCallStartTime to change state and re-run timer; here we just rebuild peer
-                  // Re-run startCall by toggling a benign state
                   setCallStatus(prev => prev === 'connecting' ? 'ringing' : 'connecting');
                 }
               }, 200);
@@ -365,7 +334,6 @@ export default function CallModal({
             return;
           }
 
-          // Show alert and end only for significant errors after connection
           alert(`Call error: ${err.message}`);
           if (callStatus === "active") {
             setCallStatus("ended");
@@ -375,105 +343,59 @@ export default function CallModal({
 
         peer.on("close", () => {
           console.log("🔴 Peer connection closed");
-          console.log("🔴 Call status when closed:", callStatus);
-          // Only set to ended if not already ended
           if (callStatus !== "ended") {
             setCallStatus("ended");
           }
         });
 
-        // If receiving call, signal the peer first, then the peer will generate its own answer signal
         if (!isInitiator && incomingSignal) {
           console.log("🔥 RECEIVER: Signaling peer with incoming signal");
-          console.log("🔥 Incoming signal type:", incomingSignal.type);
-          console.log("🔥 Incoming signal data:", incomingSignal);
-          // Process on next tick without artificial delay
           requestAnimationFrame(() => {
             if (peerRef.current && !peerRef.current.destroyed) {
               console.log("🔥 Processing incoming signal...");
               try {
                 peer.signal(incomingSignal);
-                console.log("✅ Incoming signal processed successfully - peer will now generate answer signal");
+                console.log("✅ Incoming signal processed successfully");
               } catch (error) {
                 console.error("❌ Error processing incoming signal:", error);
               }
-            } else {
-              console.error("❌ Cannot process signal - peer destroyed or not available");
             }
           });
         }
 
-        // Failsafe: end the call if connection not active within 30s
         connectionTimeoutRef.current = setTimeout(() => {
           if (!callActiveRef.current) {
             console.warn('⏰ Connection not established in time - ending call');
-            console.warn('⏰ Final ICE state:', iceStateRef.current);
-            console.warn('⏰ callActiveRef:', callActiveRef.current);
             
-            // Provide helpful error message based on state
             let errorMsg = 'Connection failed to establish. Please try again.';
             if (iceStateRef.current === 'failed' || iceStateRef.current === 'disconnected') {
               errorMsg += '\n\nPossible causes:\n• Network/firewall restrictions\n• Both users behind restrictive NAT\n• TURN server needed for connection';
-            } else if (iceStateRef.current === 'checking' || iceStateRef.current === 'new') {
-              errorMsg += '\n\nConnection is still trying to establish. Please ensure:\n• Both users have stable internet\n• Firewall allows WebRTC connections';
             }
             
             alert(errorMsg);
             endCall();
-          } else {
-            console.log('✅ Connection timeout passed - call is active');
           }
         }, 30000);
 
-        // Socket event handlers
         const handleCallAccepted = ({ signal }) => {
           console.log("✅ ========== CALL ACCEPTED ==========");
-          console.log("✅ Received answer signal:", signal);
           setCallStatus("connecting");
           
           if (peerRef.current && !peerRef.current.destroyed) {
-            console.log("📡 Signaling peer with answer");
-            console.log("📡 Current peer state:", peerRef.current.destroyed ? "destroyed" : "active");
-            console.log("📡 Answer signal type:", signal?.type);
-            console.log("📡 Answer signal:", signal);
-            
             try {
-              // Check if the peer connection is in a valid state to receive an answer
               if (signal) {
                 peerRef.current.signal(signal);
                 console.log("✅ Answer signal processed successfully");
-                // Start timer when call is accepted (for caller)
                 setCallStartTime(Date.now());
-              } else {
-                console.warn("⚠️ No signal provided in callAccepted event");
               }
             } catch (error) {
               console.error("❌ Error signaling peer:", error);
-              console.error("❌ Error details:", error.message, error.stack);
-              // Don't try to recover if it's an SDP state error - it might be a duplicate signal
               if (error.message && error.message.includes("stable")) {
-                console.log("⚠️ Peer is already in stable state - ignoring duplicate signal");
-                // Start timer anyway as call might already be connected
                 if (!callStartTime) {
                   setCallStartTime(Date.now());
                 }
-              } else {
-                // For other errors, try to recreate the peer
-                console.log("🔄 Attempting to recreate peer connection...");
-                setTimeout(() => {
-                  if (peerRef.current && !peerRef.current.destroyed) {
-                    try {
-                      peerRef.current.signal(signal);
-                      setCallStartTime(Date.now());
-                    } catch (retryError) {
-                      console.error("❌ Retry also failed:", retryError);
-                    }
-                  }
-                }, 1000);
               }
             }
-          } else {
-            console.warn("⚠️ Cannot signal - peer destroyed or not available");
           }
         };
 
@@ -486,38 +408,27 @@ export default function CallModal({
 
         const handleCallEnded = (data) => {
           if (isEndingCallRef.current) {
-            console.log("⚠️ Already ending call, ignoring duplicate callEnded event");
             return;
           }
           
           console.log("🔴 ========== CALL ENDED BY OTHER USER ==========");
-          console.log("🔴 Event data:", data);
-          console.log("🔴 Current user:", currentUser._id);
-          console.log("🔴 Other user:", otherUser._id);
-          
           isEndingCallRef.current = true;
           setCallStatus("ended");
           
-          // Clear connection timeout if still active
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
           }
           
-          // Clean up immediately when call is ended by other party
           if (streamRef.current) {
-            console.log("🔴 Stopping local stream tracks");
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
           }
           if (peerRef.current && !peerRef.current.destroyed) {
-            console.log("🔴 Destroying peer connection");
             peerRef.current.destroy();
             peerRef.current = null;
           }
           
-          console.log("🔴 Closing modal in 500ms");
-          // Close modal without emitting endCall again
           setTimeout(() => {
             onClose();
           }, 500);
@@ -537,26 +448,21 @@ export default function CallModal({
           setTimeout(() => endCall(), 1000);
         };
 
-        // Only set up event listeners that are relevant
         if (isInitiator) {
-          // Caller events
           socket.on("callAccepted", handleCallAccepted);
           socket.on("callRejected", handleCallRejected);
           socket.on("callTimeout", handleCallTimeout);
           socket.on("callError", handleCallError);
         }
         
-        // Common events for both caller and receiver
         socket.on("callEnded", handleCallEnded);
 
         return () => {
-          // Clear the connection timeout
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
           }
           
-          // Remove socket listeners
           if (isInitiator) {
             socket.off("callAccepted", handleCallAccepted);
             socket.off("callRejected", handleCallRejected);
@@ -579,7 +485,6 @@ export default function CallModal({
       console.log("🧹 Cleaning up call...");
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
-          console.log("Stopping track:", track.kind);
           track.stop();
         });
         streamRef.current = null;
@@ -597,7 +502,6 @@ export default function CallModal({
     };
   }, [isOpen]);
 
-  // Call timer effect
   useEffect(() => {
     let interval;
     if (callStartTime && callStatus === "active") {
@@ -612,27 +516,21 @@ export default function CallModal({
 
   const endCall = () => {
     if (isEndingCallRef.current) {
-      console.log("⚠️ Already ending call, skipping duplicate endCall");
       return;
     }
     
     console.log("📴 Ending call...");
-    console.log("📴 From:", currentUser._id);
-    console.log("📴 To:", otherUser._id);
     isEndingCallRef.current = true;
     
-    // Clear connection timeout if still active
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
     }
     
-    // Emit endCall socket event with both to and from
     socket.emit("endCall", { 
       to: otherUser._id,
       from: currentUser._id 
     });
-    console.log("✅ endCall event emitted to backend");
     
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -679,86 +577,103 @@ export default function CallModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-lg p-6 max-w-5xl w-full mx-4">
-        <div className="text-center mb-4">
-          <h2 className="text-2xl font-bold text-white">
-            {callStatus === "ringing" && "📞 Calling..."}
-            {callStatus === "connecting" && "🔄 Connecting..."}
-            {callStatus === "active" && `✅ In call with ${otherUser.name}`}
-            {callStatus === "ended" && "🔴 Call Ended"}
-          </h2>
-          <p className="text-gray-400">{otherUser.email || otherUser.name}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Remote stream: {remoteStreamReceived ? <span className="text-green-400">Yes</span> : <span className="text-red-400">No</span>} · ICE: <span className="text-blue-300">{iceStateRef.current}</span>
-          </p>
-          {callStatus === "active" && callDuration > 0 && (
-            <p className="text-green-400 font-mono text-lg">
-              {formatDuration(callDuration)}
-            </p>
-          )}
-        </div>
-
-        <div className="relative bg-black rounded-lg overflow-hidden mb-4" style={{ height: "500px" }}>
-          <video
-            ref={otherVideo}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
-
-          {callType === "video" && (
-            <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-white shadow-lg">
+    <div className="fixed inset-0 bg-gradient-to-b from-blue-500 to-blue-600 flex items-center justify-center z-50">
+      <div className="w-full h-full flex flex-col">
+        {/* Video container - full screen */}
+        <div className="flex-1 relative">
+          {callType === "video" ? (
+            <>
+              {/* Remote video - full screen */}
               <video
-                ref={myVideo}
+                ref={otherVideo}
                 autoPlay
-                muted
                 playsInline
                 className="w-full h-full object-cover"
               />
-            </div>
-          )}
-
-          {callType === "audio" && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="text-8xl mb-4">🎤</div>
-                <p className="text-2xl font-semibold">Audio Call</p>
-                <p className="text-lg text-gray-400 mt-2">{callStatus}</p>
+              
+              {/* Local video - small corner */}
+              <div className="absolute top-6 right-6 w-28 h-40 bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
+                <video
+                  ref={myVideo}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </>
+          ) : (
+            /* Audio call view */
+            <div className="w-full h-full flex flex-col items-center justify-center">
+              <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center mb-8">
+                <div className="w-28 h-28 rounded-full bg-white/30 flex items-center justify-center">
+                  <span className="text-6xl text-white font-semibold">
+                    {otherUser?.name?.charAt(0)?.toUpperCase() || "?"}
+                  </span>
+                </div>
               </div>
             </div>
           )}
+
+          {/* Status overlay - top center */}
+          <div className="absolute top-0 left-0 right-0 pt-12 flex flex-col items-center">
+            <h2 className="text-white text-2xl font-medium mb-1">
+              {otherUser?.name || "Unknown"}
+            </h2>
+            <p className="text-white/80 text-base">
+              {callStatus === "ringing" && "Ringing…"}
+              {callStatus === "connecting" && "Connecting…"}
+              {callStatus === "active" && callDuration > 0 && formatDuration(callDuration)}
+              {callStatus === "ended" && "Call ended"}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center justify-center gap-6">
-          <button
-            onClick={toggleMute}
-            className={`p-5 rounded-full transition-all transform hover:scale-110 ${
-              isMuted ? "bg-red-500 hover:bg-red-600" : "bg-gray-700 hover:bg-gray-600"
-            } text-white text-3xl shadow-lg`}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? "🔇" : "🎤"}
-          </button>
-
-          {callType === "video" && (
+        {/* Controls - bottom */}
+        <div className="pb-12 pt-6 px-6">
+          <div className="flex items-center justify-center gap-6">
+            {/* Mute button */}
             <button
-              onClick={toggleVideo}
-              className={`p-5 rounded-full transition-all transform hover:scale-110 ${
-                isVideoOff ? "bg-red-500 hover:bg-red-600" : "bg-gray-700 hover:bg-gray-600"
-              } text-white text-3xl shadow-lg`}
-              title={isVideoOff ? "Turn on video" : "Turn off video"}
+              onClick={toggleMute}
+              className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
+                isMuted 
+                  ? "bg-white/20 backdrop-blur-sm" 
+                  : "bg-white/30 backdrop-blur-sm"
+              }`}
             >
-              {isVideoOff ? "📹" : "📷"}
+              {isMuted ? (
+                <MicOff className="w-7 h-7 text-white" strokeWidth={2.5} />
+              ) : (
+                <Mic className="w-7 h-7 text-white" strokeWidth={2.5} />
+              )}
             </button>
-          )}
 
-          <button
-            onClick={endCall}
-            className="p-5 px-10 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg shadow-lg transform hover:scale-110 transition-all"
-          >
-            End Call
-          </button>
+            {/* End call button */}
+            <button
+              onClick={endCall}
+              className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center transition-all hover:bg-red-600 shadow-lg"
+            >
+              <PhoneOff className="w-7 h-7 text-white" strokeWidth={2.5} />
+            </button>
+
+            {/* Video toggle button */}
+            {callType === "video" && (
+              <button
+                onClick={toggleVideo}
+                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
+                  isVideoOff 
+                    ? "bg-white/20 backdrop-blur-sm" 
+                    : "bg-white/30 backdrop-blur-sm"
+                }`}
+              >
+                {isVideoOff ? (
+                  <VideoOff className="w-7 h-7 text-white" strokeWidth={2.5} />
+                ) : (
+                  <Video className="w-7 h-7 text-white" strokeWidth={2.5} />
+                )}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
