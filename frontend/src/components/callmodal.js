@@ -1,10 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from "lucide-react";
-
-// Mock Peer and socket for demo - replace with actual imports
-const Peer = null;
-const socket = { emit: () => {}, on: () => {}, off: () => {} };
+import Peer from "simple-peer";
+import socket from "@/utils/socket";
 
 export default function CallModal({ 
   isOpen, 
