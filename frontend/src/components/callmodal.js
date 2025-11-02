@@ -266,7 +266,20 @@ export default function CallModal({
                 console.log('🔊 Audio element configured: volume=1.0, muted=false');
               }
               
-              const safePlay = () => {
+              const safePlay = async () => {
+                // Resume AudioContext if needed (required by some browsers)
+                try {
+                  if (typeof window !== 'undefined' && window.AudioContext) {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioContext.state === 'suspended') {
+                      await audioContext.resume();
+                      console.log('🔊 AudioContext resumed');
+                    }
+                  }
+                } catch (e) {
+                  console.warn('⚠️ AudioContext warning:', e);
+                }
+                
                 const playPromise = mediaEl.play();
                 if (playPromise && typeof playPromise.then === 'function') {
                   playPromise.then(() => {
@@ -274,6 +287,29 @@ export default function CallModal({
                     if (mediaEl.tagName === 'AUDIO') {
                       console.log('🔊 Audio playing, volume:', mediaEl.volume, 'muted:', mediaEl.muted);
                       setAudioUnlocked(true);
+                      
+                      // Diagnostic: Check audio is actually flowing after 2 seconds
+                      setTimeout(() => {
+                        console.log('🔊 AUDIO DIAGNOSTIC (2s after start):');
+                        console.log('  - paused:', mediaEl.paused);
+                        console.log('  - currentTime:', mediaEl.currentTime);
+                        console.log('  - volume:', mediaEl.volume);
+                        console.log('  - muted:', mediaEl.muted);
+                        console.log('  - readyState:', mediaEl.readyState);
+                        
+                        const stream = mediaEl.srcObject;
+                        if (stream) {
+                          const audioTracks = stream.getAudioTracks();
+                          console.log('  - Audio tracks:', audioTracks.length);
+                          audioTracks.forEach((track, i) => {
+                            console.log(`    Track ${i}:`, {
+                              enabled: track.enabled,
+                              muted: track.muted,
+                              readyState: track.readyState
+                            });
+                          });
+                        }
+                      }, 2000);
                     }
                   }).catch(err => {
                     if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
@@ -303,40 +339,6 @@ export default function CallModal({
             } catch (e) {
               console.error('❌ Error attaching remote stream:', e);
             }
-          }
-        });
-
-        peer.on('track', (track, stream) => {
-          console.log('🎯 TRACK event:', track.kind);
-          setRemoteStreamReceived(true);
-          try {
-            if (!remoteMediaRef.current) {
-              remoteMediaRef.current = new MediaStream();
-            }
-            if (!remoteMediaRef.current.getTracks().find(t => t.id === track.id)) {
-              remoteMediaRef.current.addTrack(track);
-            }
-            if (otherVideo.current) {
-              otherVideo.current.srcObject = remoteMediaRef.current;
-              
-              // Ensure audio properties are set
-              if (otherVideo.current.tagName === 'AUDIO') {
-                otherVideo.current.volume = 1.0;
-                otherVideo.current.muted = false;
-                console.log('🔊 Track handler - Audio configured');
-              }
-              
-              const playPromise = otherVideo.current.play();
-              if (playPromise && typeof playPromise.then === 'function') {
-                playPromise.then(() => {
-                  console.log('✅ Track handler - Media playing');
-                }).catch((err) => {
-                  console.warn('⚠️ Track handler - Play failed:', err.message);
-                });
-              }
-            }
-          } catch (e) {
-            console.error('Error handling track:', e);
           }
         });
 
@@ -644,6 +646,20 @@ export default function CallModal({
     console.log('🔓 Unlocking audio playback...');
     if (otherVideo.current) {
       try {
+        // Resume AudioContext (required by some browsers)
+        try {
+          if (typeof window !== 'undefined' && window.AudioContext) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioContext.state === 'suspended') {
+              await audioContext.resume();
+              console.log('🔊 AudioContext resumed');
+            }
+            console.log('🔊 AudioContext state:', audioContext.state);
+          }
+        } catch (e) {
+          console.warn('⚠️ AudioContext warning:', e);
+        }
+        
         // Force audio settings before playing
         otherVideo.current.muted = false;
         otherVideo.current.volume = 1.0;
