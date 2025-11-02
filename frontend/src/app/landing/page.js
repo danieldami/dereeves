@@ -126,14 +126,14 @@ const Hero = () => {
         </p>
         <a 
           href="/register"
-          className="bg-indigo-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-xl mx-4"
+          className="bg-indigo-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-xl mx-2"
         >
           SIGN UP
         </a>
 
         <a 
           href="/login"
-          className="bg-indigo-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-xl mx-4"
+          className="bg-indigo-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-xl mx-2"
         >
           LOG IN
         </a>
