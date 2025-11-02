@@ -281,6 +281,29 @@ export default function CallModal({
                 };
                 track.onunmute = () => {
                   console.log(`✅ REMOTE audio track ${idx} was UNMUTED! (sender's mic is active)`);
+                  
+                  // CRITICAL: Restart playback when track unmutes
+                  if (otherVideo.current && otherVideo.current.paused) {
+                    console.log('🔄 Restarting audio playback after unmute...');
+                    otherVideo.current.play().catch(err => {
+                      console.error('❌ Failed to restart playback:', err);
+                    });
+                  } else {
+                    console.log('🔄 Audio element is already playing, ensuring it processes the unmuted track...');
+                    // Force a reload of the stream
+                    const currentStream = otherVideo.current.srcObject;
+                    otherVideo.current.srcObject = null;
+                    setTimeout(() => {
+                      if (otherVideo.current) {
+                        otherVideo.current.srcObject = currentStream;
+                        otherVideo.current.play().then(() => {
+                          console.log('✅ Audio reloaded and playing after unmute');
+                        }).catch(err => {
+                          console.error('❌ Failed to reload audio:', err);
+                        });
+                      }
+                    }, 100);
+                  }
                 };
                 track.onended = () => {
                   console.warn(`⚠️ REMOTE audio track ${idx} ENDED.`);
@@ -321,6 +344,20 @@ export default function CallModal({
                   }
                 } catch (e) {
                   console.warn('⚠️ AudioContext warning:', e);
+                }
+                
+                // Check audio output device
+                if (mediaEl.setSinkId) {
+                  try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+                    console.log('🔊 Available audio outputs:', audioOutputs.length);
+                    console.log('🔊 Current sink ID:', mediaEl.sinkId || '(default)');
+                  } catch (e) {
+                    console.warn('⚠️ Could not enumerate devices:', e);
+                  }
+                } else {
+                  console.warn('⚠️ setSinkId not supported - cannot check audio output device');
                 }
                 
                 const playPromise = mediaEl.play();
