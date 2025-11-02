@@ -18,6 +18,7 @@ export default function CallModal({
   const [callDuration, setCallDuration] = useState(0);
   const [callStartTime, setCallStartTime] = useState(null);
   const [remoteStreamReceived, setRemoteStreamReceived] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   const myVideo = useRef();
   const otherVideo = useRef();
@@ -65,10 +66,23 @@ export default function CallModal({
         });
 
         console.log("✅ Media stream obtained:", stream.getTracks().map(t => t.kind));
+        
+        // Log detailed track info
+        stream.getTracks().forEach(track => {
+          console.log(`📊 Track ${track.kind}:`, {
+            id: track.id,
+            label: track.label,
+            enabled: track.enabled,
+            muted: track.muted,
+            readyState: track.readyState
+          });
+        });
+        
         streamRef.current = stream;
         
         if (myVideo.current) {
           myVideo.current.srcObject = stream;
+          console.log("📹 Local stream attached to myVideo element");
         }
 
         console.log("🔗 Creating peer connection...");
@@ -225,6 +239,18 @@ export default function CallModal({
                 mediaEl.volume = 1.0;
                 mediaEl.muted = false;
                 console.log('🔊 Audio element configured: volume=1.0, muted=false');
+                
+                // Check if stream has audio tracks
+                const audioTracks = remoteStream.getAudioTracks();
+                console.log('🔊 Remote audio tracks:', audioTracks.length);
+                audioTracks.forEach((track, idx) => {
+                  console.log(`🔊 Audio track ${idx}:`, {
+                    enabled: track.enabled,
+                    muted: track.muted,
+                    readyState: track.readyState,
+                    label: track.label
+                  });
+                });
               }
               
               const safePlay = () => {
@@ -234,16 +260,18 @@ export default function CallModal({
                     console.log('✅ Media playback started successfully');
                     if (mediaEl.tagName === 'AUDIO') {
                       console.log('🔊 Audio playing, volume:', mediaEl.volume, 'muted:', mediaEl.muted);
+                      setAudioUnlocked(true);
                     }
                   }).catch(err => {
                     if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
                       console.warn('⚠️ Media play interrupted, retrying shortly...');
                       setTimeout(() => {
-                        mediaEl.play().catch(() => {});
+                        mediaEl.play().then(() => setAudioUnlocked(true)).catch(() => {});
                       }, 150);
                     } else {
-                      console.error('❌ Play error:', err);
-                      console.log('💡 Tip: Click anywhere on the page to enable audio playback');
+                      console.error('❌ Play error:', err.name, err.message);
+                      console.log('💡 Browser blocked autoplay. User needs to click to enable audio.');
+                      // Don't set audioUnlocked - we'll show a button
                     }
                   });
                 }
@@ -599,6 +627,30 @@ export default function CallModal({
     }
   };
 
+  const unlockAudio = async () => {
+    console.log('🔓 Unlocking audio playback...');
+    if (otherVideo.current) {
+      try {
+        await otherVideo.current.play();
+        setAudioUnlocked(true);
+        console.log('✅ Audio unlocked and playing!');
+        
+        // Log current state
+        if (otherVideo.current.tagName === 'AUDIO') {
+          console.log('🔊 Audio state after unlock:', {
+            volume: otherVideo.current.volume,
+            muted: otherVideo.current.muted,
+            paused: otherVideo.current.paused,
+            readyState: otherVideo.current.readyState
+          });
+        }
+      } catch (err) {
+        console.error('❌ Failed to unlock audio:', err);
+        alert('Could not start audio playback. Please check your browser settings.');
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -635,7 +687,8 @@ export default function CallModal({
                 ref={otherVideo}
                 autoPlay
                 playsInline
-                className="hidden"
+                controls={false}
+                style={{ display: 'none' }}
               />
               {/* Hidden audio element for local stream (muted to prevent echo) */}
               <audio
@@ -643,7 +696,8 @@ export default function CallModal({
                 autoPlay
                 muted
                 playsInline
-                className="hidden"
+                controls={false}
+                style={{ display: 'none' }}
               />
               
               <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center mb-8">
@@ -653,6 +707,16 @@ export default function CallModal({
                   </span>
                 </div>
               </div>
+              
+              {/* Enable Audio Button - shows when browser blocks autoplay */}
+              {callStatus === "active" && !audioUnlocked && (
+                <button
+                  onClick={unlockAudio}
+                  className="mt-6 bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg animate-pulse"
+                >
+                  🔊 Tap to Enable Audio
+                </button>
+              )}
             </div>
           )}
 
