@@ -67,8 +67,10 @@ export default function CallModal({
 
         console.log("✅ Media stream obtained:", stream.getTracks().map(t => t.kind));
         
-        // Log detailed track info
+        // Log detailed track info and ENSURE AUDIO IS ENABLED
         stream.getTracks().forEach(track => {
+          // Explicitly enable all tracks
+          track.enabled = true;
           console.log(`📊 Track ${track.kind}:`, {
             id: track.id,
             label: track.label,
@@ -79,6 +81,16 @@ export default function CallModal({
         });
         
         streamRef.current = stream;
+        
+        // Double-check audio tracks are enabled and working
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          console.error("❌ NO AUDIO TRACKS IN LOCAL STREAM!");
+          alert("Microphone is not working. Please check permissions.");
+          onClose();
+          return;
+        }
+        console.log(`✅ ${audioTracks.length} audio track(s) confirmed in local stream`);
         
         if (myVideo.current) {
           myVideo.current.srcObject = stream;
@@ -231,6 +243,19 @@ export default function CallModal({
           
           if (otherVideo.current) {
             try {
+              // CRITICAL: Enable all audio tracks in the remote stream
+              const audioTracks = remoteStream.getAudioTracks();
+              console.log('🔊 Remote audio tracks:', audioTracks.length);
+              audioTracks.forEach((track, idx) => {
+                track.enabled = true; // Explicitly enable
+                console.log(`🔊 Audio track ${idx}:`, {
+                  enabled: track.enabled,
+                  muted: track.muted,
+                  readyState: track.readyState,
+                  label: track.label
+                });
+              });
+              
               otherVideo.current.srcObject = remoteStream;
               const mediaEl = otherVideo.current;
               
@@ -239,18 +264,6 @@ export default function CallModal({
                 mediaEl.volume = 1.0;
                 mediaEl.muted = false;
                 console.log('🔊 Audio element configured: volume=1.0, muted=false');
-                
-                // Check if stream has audio tracks
-                const audioTracks = remoteStream.getAudioTracks();
-                console.log('🔊 Remote audio tracks:', audioTracks.length);
-                audioTracks.forEach((track, idx) => {
-                  console.log(`🔊 Audio track ${idx}:`, {
-                    enabled: track.enabled,
-                    muted: track.muted,
-                    readyState: track.readyState,
-                    label: track.label
-                  });
-                });
               }
               
               const safePlay = () => {
@@ -631,6 +644,26 @@ export default function CallModal({
     console.log('🔓 Unlocking audio playback...');
     if (otherVideo.current) {
       try {
+        // Force audio settings before playing
+        otherVideo.current.muted = false;
+        otherVideo.current.volume = 1.0;
+        
+        // Check if srcObject has audio tracks
+        if (otherVideo.current.srcObject) {
+          const audioTracks = otherVideo.current.srcObject.getAudioTracks();
+          console.log('🔊 Audio tracks in element:', audioTracks.length);
+          audioTracks.forEach((track, idx) => {
+            track.enabled = true;
+            console.log(`🔊 Track ${idx}:`, {
+              enabled: track.enabled,
+              muted: track.muted,
+              readyState: track.readyState
+            });
+          });
+        } else {
+          console.error('❌ No srcObject on audio element!');
+        }
+        
         await otherVideo.current.play();
         setAudioUnlocked(true);
         console.log('✅ Audio unlocked and playing!');
@@ -641,13 +674,17 @@ export default function CallModal({
             volume: otherVideo.current.volume,
             muted: otherVideo.current.muted,
             paused: otherVideo.current.paused,
-            readyState: otherVideo.current.readyState
+            readyState: otherVideo.current.readyState,
+            currentTime: otherVideo.current.currentTime,
+            duration: otherVideo.current.duration
           });
         }
       } catch (err) {
         console.error('❌ Failed to unlock audio:', err);
         alert('Could not start audio playback. Please check your browser settings.');
       }
+    } else {
+      console.error('❌ otherVideo ref is null!');
     }
   };
 
@@ -687,6 +724,8 @@ export default function CallModal({
                 ref={otherVideo}
                 autoPlay
                 playsInline
+                muted={false}
+                volume={1.0}
                 controls={false}
                 style={{ display: 'none' }}
               />
@@ -694,7 +733,7 @@ export default function CallModal({
               <audio
                 ref={myVideo}
                 autoPlay
-                muted
+                muted={true}
                 playsInline
                 controls={false}
                 style={{ display: 'none' }}
