@@ -297,29 +297,10 @@ export default function CallModal({
                 };
                 track.onunmute = () => {
                   console.log(`✅ REMOTE audio track ${idx} was UNMUTED! (sender's mic is active)`);
+                  console.log('🔊 Audio is already routed through Web Audio API - no action needed');
                   
-                  // CRITICAL: Restart playback when track unmutes
-                  if (otherVideo.current && otherVideo.current.paused) {
-                    console.log('🔄 Restarting audio playback after unmute...');
-                    otherVideo.current.play().catch(err => {
-                      console.error('❌ Failed to restart playback:', err);
-                    });
-                  } else {
-                    console.log('🔄 Audio element is already playing, ensuring it processes the unmuted track...');
-                    // Force a reload of the stream
-                    const currentStream = otherVideo.current.srcObject;
-                    otherVideo.current.srcObject = null;
-                    setTimeout(() => {
-                      if (otherVideo.current) {
-                        otherVideo.current.srcObject = currentStream;
-                        otherVideo.current.play().then(() => {
-                          console.log('✅ Audio reloaded and playing after unmute');
-                        }).catch(err => {
-                          console.error('❌ Failed to reload audio:', err);
-                        });
-                      }
-                    }, 100);
-                  }
+                  // The Web Audio API routing handles unmute automatically
+                  // No need to restart playback
                 };
                 track.onended = () => {
                   console.warn(`⚠️ REMOTE audio track ${idx} ENDED.`);
@@ -383,7 +364,23 @@ export default function CallModal({
                     console.log('✅✅✅ DIRECT AUDIO ROUTING: RemoteStream -> Gain(2.0x) -> Your Speakers');
                     console.log('🔊 AudioContext state:', audioContext.state);
                     console.log('🔊 Audio should now be playing directly to your speakers!');
-                    console.log('🔊 If you still can\'t hear, your speakers/headphones might be the issue.');
+                    
+                    // Test if speakers are working by playing a brief test tone
+                    try {
+                      const oscillator = audioContext.createOscillator();
+                      const testGain = audioContext.createGain();
+                      oscillator.frequency.value = 440; // A4 note
+                      testGain.gain.value = 0.1; // Quiet test tone
+                      oscillator.connect(testGain);
+                      testGain.connect(audioContext.destination);
+                      oscillator.start();
+                      setTimeout(() => {
+                        oscillator.stop();
+                        console.log('🔊 Test tone completed. Did you hear a brief beep? If YES, your speakers work!');
+                      }, 200);
+                    } catch (e) {
+                      console.warn('⚠️ Could not play test tone:', e);
+                    }
                     
                     setAudioUnlocked(true);
                   }
