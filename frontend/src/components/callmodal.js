@@ -334,32 +334,14 @@ export default function CallModal({
                 };
                 track.onunmute = () => {
                   console.log(`✅ REMOTE audio track ${idx} was UNMUTED! (sender's mic is active)`);
-                  console.log('🔄 RECREATING Web Audio routing with unmuted track...');
+                  console.log('🔄 Setting up audio NOW that track is unmuted...');
                   
-                  // CRITICAL: Recreate Web Audio routing now that track is unmuted
-                  try {
-                    // Disconnect old routing
-                    if (audioSourceRef.current) {
-                      audioSourceRef.current.disconnect();
-                    }
-                    if (gainNodeRef.current) {
-                      gainNodeRef.current.disconnect();
-                    }
-                    
-                    // Create NEW routing with the unmuted stream
-                    if (audioContextRef.current && remoteStream) {
-                      audioSourceRef.current = audioContextRef.current.createMediaStreamSource(remoteStream);
-                      gainNodeRef.current = audioContextRef.current.createGain();
-                      gainNodeRef.current.gain.value = 2.0;
-                      
-                      audioSourceRef.current.connect(gainNodeRef.current);
-                      gainNodeRef.current.connect(audioContextRef.current.destination);
-                      
-                      console.log('✅✅✅ AUDIO ROUTING RECREATED! You should hear them NOW!');
-                    }
-                  } catch (e) {
-                    console.error('❌ Failed to recreate audio routing:', e);
-                  }
+                  // Create a FRESH MediaStream with the unmuted track
+                  const freshStream = new MediaStream([track]);
+                  console.log('🔊 Created fresh MediaStream with unmuted track');
+                  
+                  // Call the setup function with the fresh stream
+                  setupWebAudioPlayback(freshStream);
                 };
                 track.onended = () => {
                   console.warn(`⚠️ REMOTE audio track ${idx} ENDED.`);
@@ -378,10 +360,21 @@ export default function CallModal({
                 });
               });
               
+              // CRITICAL: Check if track is already unmuted, if not, wait for unmute event
+              const remoteTracks = remoteStream.getAudioTracks();
+              if (remoteTracks.length > 0 && !remoteTracks[0].muted) {
+                // Track is already unmuted, set up audio immediately
+                console.log('🔊 Track is already unmuted, setting up audio immediately...');
+                setupWebAudioPlayback(remoteStream);
+              } else {
+                console.log('⏳ Track is muted, waiting for unmute event before setting up audio...');
+                console.log('⏳ Audio will start automatically when the other person\'s mic unmutes');
+              }
+              
               // CRITICAL: Use Web Audio API ONLY (not HTML audio element)
-              const setupWebAudioPlayback = async () => {
+              function setupWebAudioPlayback(stream) {
                 try {
-                  if (typeof window !== 'undefined' && window.AudioContext && remoteStream) {
+                  if (typeof window !== 'undefined' && window.AudioContext && stream) {
                     console.log('🔊 Setting up Web Audio API for direct speaker output...');
                     
                     // Create or reuse AudioContext
@@ -393,7 +386,7 @@ export default function CallModal({
                     const audioContext = audioContextRef.current;
                     
                     if (audioContext.state === 'suspended') {
-                      await audioContext.resume();
+                      audioContext.resume();
                       console.log('🔊 AudioContext resumed');
                     }
                     
@@ -409,20 +402,20 @@ export default function CallModal({
                       } catch (e) {}
                     }
                     
-                    // Create source from the ACTUAL remote stream
-                    audioSourceRef.current = audioContext.createMediaStreamSource(remoteStream);
+                    // Create source from the stream
+                    audioSourceRef.current = audioContext.createMediaStreamSource(stream);
                     
                     // Create gain node for volume control
-                    gainNodeRef.current = audioContext.createGain ? audioContext.createGain() : audioContext.createGainNode();
-                    gainNodeRef.current.gain.value = 2.0; // Boost volume to 200% for testing
+                    gainNodeRef.current = audioContext.createGain();
+                    gainNodeRef.current.gain.value = 3.0; // Boost volume to 300%
                     
                     // Connect: source -> gain -> destination (speakers)
                     audioSourceRef.current.connect(gainNodeRef.current);
                     gainNodeRef.current.connect(audioContext.destination);
                     
-                    console.log('✅✅✅ DIRECT AUDIO ROUTING: RemoteStream -> Gain(2.0x) -> Your Speakers');
+                    console.log('✅✅✅ DIRECT AUDIO ROUTING: Stream -> Gain(3.0x) -> Your Speakers');
                     console.log('🔊 AudioContext state:', audioContext.state);
-                    console.log('🔊 Audio should now be playing directly to your speakers!');
+                    console.log('🔊 Audio should now be LOUD and clear!');
                     
                     // Test if speakers are working by playing a brief test tone
                     try {
@@ -446,10 +439,7 @@ export default function CallModal({
                 } catch (e) {
                   console.error('❌ Web Audio setup failed:', e);
                 }
-              };
-              
-              // Call the Web Audio setup immediately
-              setupWebAudioPlayback();
+              }
             } catch (e) {
               console.error('❌ Error attaching remote stream:', e);
             }
