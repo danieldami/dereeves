@@ -58,11 +58,7 @@ export default function CallModal({
             height: { ideal: 720 },
             facingMode: "user"
           } : false,
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
+          audio: true  // SIMPLIFIED: Just request audio without constraints
         });
 
         console.log("✅ Media stream obtained:", stream.getTracks().map(t => t.kind));
