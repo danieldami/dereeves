@@ -30,6 +30,9 @@ export default function CallModal({
   const connectionTimeoutRef = useRef(null);
   const callActiveRef = useRef(false);
   const isEndingCallRef = useRef(false);
+  const audioContextRef = useRef(null);
+  const audioSourceRef = useRef(null);
+  const gainNodeRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -349,27 +352,47 @@ export default function CallModal({
                 // CRITICAL FIX: Route audio through Web Audio API to force playback
                 try {
                   if (typeof window !== 'undefined' && window.AudioContext && remoteStream) {
-                    console.log('🔊 Creating Web Audio routing for playback...');
-                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    console.log('🔊 Creating PERSISTENT Web Audio routing for playback...');
+                    
+                    // Create or reuse AudioContext
+                    if (!audioContextRef.current) {
+                      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                      console.log('🔊 New AudioContext created');
+                    }
+                    
+                    const audioContext = audioContextRef.current;
                     
                     if (audioContext.state === 'suspended') {
                       await audioContext.resume();
                       console.log('🔊 AudioContext resumed');
                     }
                     
+                    // Clean up old connections if they exist
+                    if (audioSourceRef.current) {
+                      try {
+                        audioSourceRef.current.disconnect();
+                      } catch (e) {}
+                    }
+                    if (gainNodeRef.current) {
+                      try {
+                        gainNodeRef.current.disconnect();
+                      } catch (e) {}
+                    }
+                    
                     // Create source from the ACTUAL remote stream
-                    const source = audioContext.createMediaStreamSource(remoteStream);
+                    audioSourceRef.current = audioContext.createMediaStreamSource(remoteStream);
                     
                     // Create gain node for volume control
-                    const gainNode = audioContext.createGainNode ? audioContext.createGainNode() : audioContext.createGain();
-                    gainNode.gain.value = 1.0;
+                    gainNodeRef.current = audioContext.createGain ? audioContext.createGain() : audioContext.createGainNode();
+                    gainNodeRef.current.gain.value = 1.5; // Boost volume to 150%
                     
                     // Connect: source -> gain -> destination (speakers)
-                    source.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
+                    audioSourceRef.current.connect(gainNodeRef.current);
+                    gainNodeRef.current.connect(audioContext.destination);
                     
-                    console.log('✅ Web Audio routing established: RemoteStream -> Speakers');
+                    console.log('✅ PERSISTENT Web Audio routing established: RemoteStream -> Gain(1.5x) -> Speakers');
                     console.log('🔊 AudioContext state:', audioContext.state);
+                    console.log('🔊 Audio routing will persist for entire call');
                   }
                 } catch (e) {
                   console.error('❌ Web Audio routing failed:', e);
@@ -646,6 +669,30 @@ export default function CallModal({
 
     return () => {
       console.log("🧹 Cleaning up call...");
+      
+      // Clean up Web Audio routing
+      if (audioSourceRef.current) {
+        try {
+          audioSourceRef.current.disconnect();
+          audioSourceRef.current = null;
+          console.log("🧹 Audio source disconnected");
+        } catch (e) {}
+      }
+      if (gainNodeRef.current) {
+        try {
+          gainNodeRef.current.disconnect();
+          gainNodeRef.current = null;
+          console.log("🧹 Gain node disconnected");
+        } catch (e) {}
+      }
+      if (audioContextRef.current) {
+        try {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+          console.log("🧹 AudioContext closed");
+        } catch (e) {}
+      }
+      
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
           track.stop();
@@ -688,6 +735,26 @@ export default function CallModal({
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
+    }
+    
+    // Clean up Web Audio routing
+    if (audioSourceRef.current) {
+      try {
+        audioSourceRef.current.disconnect();
+        audioSourceRef.current = null;
+      } catch (e) {}
+    }
+    if (gainNodeRef.current) {
+      try {
+        gainNodeRef.current.disconnect();
+        gainNodeRef.current = null;
+      } catch (e) {}
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      } catch (e) {}
     }
     
     socket.emit("endCall", { 
@@ -741,15 +808,14 @@ export default function CallModal({
     console.log('🔓 Unlocking audio playback...');
     if (otherVideo.current) {
       try {
-        // Resume AudioContext (required by some browsers)
+        // Resume persistent AudioContext (required by some browsers)
         try {
-          if (typeof window !== 'undefined' && window.AudioContext) {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioContext.state === 'suspended') {
-              await audioContext.resume();
-              console.log('🔊 AudioContext resumed');
+          if (audioContextRef.current) {
+            if (audioContextRef.current.state === 'suspended') {
+              await audioContextRef.current.resume();
+              console.log('🔊 AudioContext resumed from suspended state');
             }
-            console.log('🔊 AudioContext state:', audioContext.state);
+            console.log('🔊 AudioContext state:', audioContextRef.current.state);
           }
         } catch (e) {
           console.warn('⚠️ AudioContext warning:', e);
@@ -858,14 +924,20 @@ export default function CallModal({
                 </div>
               </div>
               
-              {/* Enable Audio Button - shows when browser blocks autoplay */}
-              {callStatus === "active" && !audioUnlocked && (
+              {/* Enable Audio Button - shows prominently when audio might be blocked */}
+              {(callStatus === "active" || callStatus === "connecting") && !audioUnlocked && remoteStreamReceived && (
                 <button
                   onClick={unlockAudio}
-                  className="mt-6 bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg animate-pulse"
+                  className="mt-6 bg-red-500 hover:bg-red-600 text-white px-12 py-6 rounded-full font-bold text-2xl shadow-2xl animate-pulse z-50"
                 >
-                  🔊 Tap to Enable Audio
+                  🔊 TAP HERE TO ENABLE AUDIO
                 </button>
+              )}
+              
+              {callStatus === "active" && audioUnlocked && (
+                <p className="mt-6 text-white text-lg">
+                  ✅ Audio enabled
+                </p>
               )}
             </div>
           )}
