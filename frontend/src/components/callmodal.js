@@ -118,8 +118,11 @@ export default function CallModal({
             console.warn(`⚠️ Local audio track ${idx} ENDED.`);
           };
           
-          // Check if microphone is actually picking up audio after 2 seconds
-          setTimeout(() => {
+          // CONTINUOUS audio level monitoring (checks every second for 10 seconds)
+          let checkCount = 0;
+          const maxChecks = 10;
+          const audioCheckInterval = setInterval(() => {
+            checkCount++;
             try {
               if (window.AudioContext && !track.muted && track.readyState === 'live') {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -130,25 +133,41 @@ export default function CallModal({
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
                 analyser.getByteFrequencyData(dataArray);
                 const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                console.log(`🎤 YOUR MICROPHONE audio level:`, average.toFixed(2), average > 0 ? '✅ (mic is picking up sound!)' : '❌ (SILENCE - speak into your mic!)');
                 
-                if (average === 0) {
-                  console.error('❌ Your microphone is not picking up any audio!');
-                  console.error('❌ Possible issues:');
-                  console.error('   - Microphone is muted in Windows/Mac sound settings');
-                  console.error('   - Wrong microphone selected');
-                  console.error('   - Microphone volume is set to 0');
-                  console.error('   - Virtual audio device (Voicemod) is not configured correctly');
+                console.log(`🎤 [Check ${checkCount}/${maxChecks}] YOUR MIC audio level:`, average.toFixed(2), average > 0 ? '✅ (picking up sound!)' : '❌ (silence)');
+                
+                if (checkCount === 1 && average === 0) {
+                  console.warn('⚠️ No audio detected yet. SPEAK INTO YOUR MIC NOW to test!');
+                }
+                
+                if (average > 0) {
+                  console.log('✅✅✅ MICROPHONE IS WORKING! Audio data detected!');
+                  clearInterval(audioCheckInterval);
+                }
+                
+                if (checkCount >= maxChecks && average === 0) {
+                  console.error('❌❌❌ MICROPHONE PROBLEM: No audio detected after 10 checks!');
+                  console.error('❌ Your microphone is not sending any audio data.');
+                  console.error('❌ Check:');
+                  console.error('   1. Windows Sound Settings → Input → Microphone volume is UP');
+                  console.error('   2. Browser has microphone permission');
+                  console.error('   3. Microphone is not muted in system settings');
+                  console.error('   4. Try a different microphone/device');
+                  clearInterval(audioCheckInterval);
                 }
                 
                 // Clean up
                 streamNode.disconnect();
                 audioContext.close();
+              } else {
+                console.warn(`⚠️ Track not ready: muted=${track.muted}, state=${track.readyState}`);
+                if (checkCount >= maxChecks) clearInterval(audioCheckInterval);
               }
             } catch (e) {
-              console.warn('⚠️ Could not measure local audio level:', e.message);
+              console.error('❌ Error measuring audio level:', e.message);
+              if (checkCount >= maxChecks) clearInterval(audioCheckInterval);
             }
-          }, 2000);
+          }, 1000);
         });
         
         if (myVideo.current) {
@@ -408,26 +427,25 @@ export default function CallModal({
                       console.log('🔊 Audio playing, volume:', mediaEl.volume, 'muted:', mediaEl.muted);
                       setAudioUnlocked(true);
                       
-                      // Diagnostic: Check audio is actually flowing after 2 seconds
-                      setTimeout(() => {
-                        console.log('🔊 AUDIO DIAGNOSTIC (2s after start):');
-                        console.log('  - paused:', mediaEl.paused);
-                        console.log('  - currentTime:', mediaEl.currentTime);
-                        console.log('  - volume:', mediaEl.volume);
-                        console.log('  - muted:', mediaEl.muted);
-                        console.log('  - readyState:', mediaEl.readyState);
+                      // CONTINUOUS diagnostic: Check remote audio is flowing (every second for 10 seconds)
+                      let remoteCheckCount = 0;
+                      const maxRemoteChecks = 10;
+                      const remoteAudioCheckInterval = setInterval(() => {
+                        remoteCheckCount++;
+                        
+                        if (remoteCheckCount === 1) {
+                          console.log('🔊 REMOTE AUDIO DIAGNOSTIC:');
+                          console.log('  - paused:', mediaEl.paused);
+                          console.log('  - currentTime:', mediaEl.currentTime);
+                          console.log('  - volume:', mediaEl.volume);
+                          console.log('  - muted:', mediaEl.muted);
+                          console.log('  - readyState:', mediaEl.readyState);
+                        }
                         
                         const stream = mediaEl.srcObject;
                         if (stream) {
                           const audioTracks = stream.getAudioTracks();
-                          console.log('  - Audio tracks:', audioTracks.length);
                           audioTracks.forEach((track, i) => {
-                            console.log(`    Track ${i}:`, {
-                              enabled: track.enabled,
-                              muted: track.muted,
-                              readyState: track.readyState
-                            });
-                            
                             // Try to check if audio is actually flowing using Web Audio API
                             try {
                               if (window.AudioContext && !track.muted && track.readyState === 'live') {
@@ -439,18 +457,40 @@ export default function CallModal({
                                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
                                 analyser.getByteFrequencyData(dataArray);
                                 const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                                console.log(`    🎚️ Audio level on track ${i}:`, average.toFixed(2), average > 0 ? '(audio detected!)' : '(SILENCE - no audio data!)');
+                                
+                                console.log(`🔊 [Check ${remoteCheckCount}/${maxRemoteChecks}] REMOTE audio level:`, average.toFixed(2), average > 0 ? '✅ (receiving audio!)' : '❌ (silence)');
+                                
+                                if (remoteCheckCount === 1 && average === 0) {
+                                  console.warn('⚠️ No remote audio yet. Ask the OTHER PERSON to SPEAK NOW!');
+                                }
+                                
+                                if (average > 0) {
+                                  console.log('✅✅✅ REMOTE AUDIO IS WORKING! You should hear them now!');
+                                  clearInterval(remoteAudioCheckInterval);
+                                }
+                                
+                                if (remoteCheckCount >= maxRemoteChecks && average === 0) {
+                                  console.error('❌❌❌ REMOTE AUDIO PROBLEM: No audio from other person!');
+                                  console.error('❌ The other person\'s microphone is not sending audio.');
+                                  console.error('❌ Ask them to check their microphone settings!');
+                                  clearInterval(remoteAudioCheckInterval);
+                                }
                                 
                                 // Clean up
                                 streamNode.disconnect();
                                 audioContext.close();
                               }
                             } catch (e) {
-                              console.warn('    ⚠️ Could not measure audio level:', e.message);
+                              console.warn('⚠️ Could not measure remote audio level:', e.message);
+                              if (remoteCheckCount >= maxRemoteChecks) clearInterval(remoteAudioCheckInterval);
                             }
                           });
                         }
-                      }, 2000);
+                        
+                        if (remoteCheckCount >= maxRemoteChecks) {
+                          clearInterval(remoteAudioCheckInterval);
+                        }
+                      }, 1000);
                     }
                   }).catch(err => {
                     if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
