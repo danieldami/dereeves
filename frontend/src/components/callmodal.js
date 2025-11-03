@@ -131,6 +131,32 @@ export default function CallModal({
           myVideo.current.srcObject = stream;
           console.log("📹 Local stream attached to myVideo element");
         }
+        
+        // TEST: Play your own mic back to yourself for 3 seconds to verify it's working
+        console.log('🎤 TESTING YOUR MICROPHONE: You should hear yourself speak in 3 seconds...');
+        setTimeout(() => {
+          try {
+            if (window.AudioContext && stream) {
+              const testAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+              const testSource = testAudioContext.createMediaStreamSource(stream);
+              const testGain = testAudioContext.createGain();
+              testGain.gain.value = 0.5; // 50% volume for feedback test
+              testSource.connect(testGain);
+              testGain.connect(testAudioContext.destination);
+              
+              console.log('🎤 MIC TEST ACTIVE: SPEAK NOW! You should hear yourself for 3 seconds.');
+              
+              setTimeout(() => {
+                testSource.disconnect();
+                testGain.disconnect();
+                testAudioContext.close();
+                console.log('🎤 MIC TEST ENDED. Did you hear yourself? If YES, your mic works! If NO, check Windows Sound Settings.');
+              }, 3000);
+            }
+          } catch (e) {
+            console.error('❌ Mic test failed:', e);
+          }
+        }, 1000);
 
         console.log("🔗 Creating peer connection...");
 
