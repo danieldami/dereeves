@@ -334,10 +334,32 @@ export default function CallModal({
                 };
                 track.onunmute = () => {
                   console.log(`✅ REMOTE audio track ${idx} was UNMUTED! (sender's mic is active)`);
-                  console.log('🔊 Audio is already routed through Web Audio API - no action needed');
+                  console.log('🔄 RECREATING Web Audio routing with unmuted track...');
                   
-                  // The Web Audio API routing handles unmute automatically
-                  // No need to restart playback
+                  // CRITICAL: Recreate Web Audio routing now that track is unmuted
+                  try {
+                    // Disconnect old routing
+                    if (audioSourceRef.current) {
+                      audioSourceRef.current.disconnect();
+                    }
+                    if (gainNodeRef.current) {
+                      gainNodeRef.current.disconnect();
+                    }
+                    
+                    // Create NEW routing with the unmuted stream
+                    if (audioContextRef.current && remoteStream) {
+                      audioSourceRef.current = audioContextRef.current.createMediaStreamSource(remoteStream);
+                      gainNodeRef.current = audioContextRef.current.createGain();
+                      gainNodeRef.current.gain.value = 2.0;
+                      
+                      audioSourceRef.current.connect(gainNodeRef.current);
+                      gainNodeRef.current.connect(audioContextRef.current.destination);
+                      
+                      console.log('✅✅✅ AUDIO ROUTING RECREATED! You should hear them NOW!');
+                    }
+                  } catch (e) {
+                    console.error('❌ Failed to recreate audio routing:', e);
+                  }
                 };
                 track.onended = () => {
                   console.warn(`⚠️ REMOTE audio track ${idx} ENDED.`);
