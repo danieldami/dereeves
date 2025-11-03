@@ -392,17 +392,34 @@ export default function CallModal({
               }
               
               const safePlay = async () => {
-                // Resume AudioContext if needed (required by some browsers)
+                // CRITICAL FIX: Route audio through Web Audio API to force playback
                 try {
-                  if (typeof window !== 'undefined' && window.AudioContext) {
+                  if (typeof window !== 'undefined' && window.AudioContext && remoteStream) {
+                    console.log('🔊 Creating Web Audio routing for playback...');
                     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    
                     if (audioContext.state === 'suspended') {
                       await audioContext.resume();
                       console.log('🔊 AudioContext resumed');
                     }
+                    
+                    // Create source from the ACTUAL remote stream
+                    const source = audioContext.createMediaStreamSource(remoteStream);
+                    
+                    // Create gain node for volume control
+                    const gainNode = audioContext.createGainNode ? audioContext.createGainNode() : audioContext.createGain();
+                    gainNode.gain.value = 1.0;
+                    
+                    // Connect: source -> gain -> destination (speakers)
+                    source.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    console.log('✅ Web Audio routing established: RemoteStream -> Speakers');
+                    console.log('🔊 AudioContext state:', audioContext.state);
                   }
                 } catch (e) {
-                  console.warn('⚠️ AudioContext warning:', e);
+                  console.error('❌ Web Audio routing failed:', e);
+                  console.log('⚠️ Falling back to HTML5 audio element playback');
                 }
                 
                 // Check audio output device
