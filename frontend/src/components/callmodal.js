@@ -19,6 +19,7 @@ export default function CallModal({
   const [callStartTime, setCallStartTime] = useState(null);
   const [remoteStreamReceived, setRemoteStreamReceived] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
 
   const myVideo = useRef();
   const otherVideo = useRef();
@@ -132,31 +133,41 @@ export default function CallModal({
           console.log("📹 Local stream attached to myVideo element");
         }
         
-        // TEST: Play your own mic back to yourself for 3 seconds to verify it's working
-        console.log('🎤 TESTING YOUR MICROPHONE: You should hear yourself speak in 3 seconds...');
-        setTimeout(() => {
-          try {
-            if (window.AudioContext && stream) {
-              const testAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-              const testSource = testAudioContext.createMediaStreamSource(stream);
-              const testGain = testAudioContext.createGain();
-              testGain.gain.value = 0.5; // 50% volume for feedback test
-              testSource.connect(testGain);
-              testGain.connect(testAudioContext.destination);
+        // CONTINUOUS microphone level monitoring
+        try {
+          if (window.AudioContext && stream) {
+            const monitorContext = new (window.AudioContext || window.webkitAudioContext)();
+            const monitorSource = monitorContext.createMediaStreamSource(stream);
+            const analyser = monitorContext.createAnalyser();
+            analyser.fftSize = 256;
+            monitorSource.connect(analyser);
+            
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            // Update mic level every 100ms
+            const micMonitor = setInterval(() => {
+              analyser.getByteFrequencyData(dataArray);
+              const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+              setMicLevel(Math.round(average));
               
-              console.log('🎤 MIC TEST ACTIVE: SPEAK NOW! You should hear yourself for 3 seconds.');
-              
-              setTimeout(() => {
-                testSource.disconnect();
-                testGain.disconnect();
-                testAudioContext.close();
-                console.log('🎤 MIC TEST ENDED. Did you hear yourself? If YES, your mic works! If NO, check Windows Sound Settings.');
-              }, 3000);
-            }
-          } catch (e) {
-            console.error('❌ Mic test failed:', e);
+              if (average > 0) {
+                console.log('🎤 YOUR MIC IS PICKING UP AUDIO! Level:', Math.round(average));
+              }
+            }, 100);
+            
+            // Clean up after 30 seconds
+            setTimeout(() => {
+              clearInterval(micMonitor);
+              monitorSource.disconnect();
+              analyser.disconnect();
+              monitorContext.close();
+            }, 30000);
+            
+            console.log('🎤 Microphone monitoring started. Speak into your mic - watch the level indicator on screen!');
           }
-        }, 1000);
+        } catch (e) {
+          console.error('❌ Mic monitoring failed:', e);
+        }
 
         console.log("🔗 Creating peer connection...");
 
@@ -852,25 +863,38 @@ export default function CallModal({
                 </div>
               </div>
               
-              {/* Enable Audio Button - ALWAYS show it for testing */}
-              {(callStatus === "active" || callStatus === "connecting") && remoteStreamReceived && (
-                <div className="mt-6 flex flex-col items-center gap-4">
-                  <button
-                    onClick={unlockAudio}
-                    className="bg-red-500 hover:bg-red-600 text-white px-12 py-6 rounded-full font-bold text-2xl shadow-2xl animate-pulse z-50"
-                  >
-                    🔊 CLICK HERE FOR AUDIO
-                  </button>
-                  {audioUnlocked && (
-                    <p className="text-white text-lg">
-                      ✅ Audio unlocked - Volume at 200%
-                    </p>
-                  )}
-                  <p className="text-white/80 text-sm">
-                    Click button to boost volume to 300%
+              {/* Microphone Level Indicator */}
+              <div className="mt-6 flex flex-col items-center gap-4 w-64">
+                <div className="text-white text-center">
+                  <p className="text-lg font-bold mb-2">🎤 Your Mic Level:</p>
+                  <div className="w-full bg-white/20 rounded-full h-8 overflow-hidden">
+                    <div 
+                      className="bg-green-400 h-full transition-all duration-100"
+                      style={{ width: `${Math.min(micLevel * 2, 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm mt-2">
+                    {micLevel > 0 ? `✅ Mic working! (${micLevel})` : '❌ No mic input - SPEAK NOW!'}
                   </p>
                 </div>
-              )}
+                
+                {/* Enable Audio Button */}
+                {(callStatus === "active" || callStatus === "connecting") && remoteStreamReceived && (
+                  <div className="flex flex-col items-center gap-2">
+                    <button
+                      onClick={unlockAudio}
+                      className="bg-red-500 hover:bg-red-600 text-white px-12 py-6 rounded-full font-bold text-2xl shadow-2xl animate-pulse z-50"
+                    >
+                      🔊 BOOST VOLUME
+                    </button>
+                    {audioUnlocked && (
+                      <p className="text-white text-sm">
+                        ✅ Volume at 300%
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
