@@ -338,21 +338,11 @@ export default function CallModal({
                 });
               });
               
-              otherVideo.current.srcObject = remoteStream;
-              const mediaEl = otherVideo.current;
-              
-              // Ensure audio is enabled and volume is up
-              if (mediaEl.tagName === 'AUDIO') {
-                mediaEl.volume = 1.0;
-                mediaEl.muted = false;
-                console.log('🔊 Audio element configured: volume=1.0, muted=false');
-              }
-              
-              const safePlay = async () => {
-                // CRITICAL FIX: Route audio through Web Audio API to force playback
+              // CRITICAL: Use Web Audio API ONLY (not HTML audio element)
+              const setupWebAudioPlayback = async () => {
                 try {
                   if (typeof window !== 'undefined' && window.AudioContext && remoteStream) {
-                    console.log('🔊 Creating PERSISTENT Web Audio routing for playback...');
+                    console.log('🔊 Setting up Web Audio API for direct speaker output...');
                     
                     // Create or reuse AudioContext
                     if (!audioContextRef.current) {
@@ -384,76 +374,26 @@ export default function CallModal({
                     
                     // Create gain node for volume control
                     gainNodeRef.current = audioContext.createGain ? audioContext.createGain() : audioContext.createGainNode();
-                    gainNodeRef.current.gain.value = 1.5; // Boost volume to 150%
+                    gainNodeRef.current.gain.value = 2.0; // Boost volume to 200% for testing
                     
                     // Connect: source -> gain -> destination (speakers)
                     audioSourceRef.current.connect(gainNodeRef.current);
                     gainNodeRef.current.connect(audioContext.destination);
                     
-                    console.log('✅ PERSISTENT Web Audio routing established: RemoteStream -> Gain(1.5x) -> Speakers');
+                    console.log('✅✅✅ DIRECT AUDIO ROUTING: RemoteStream -> Gain(2.0x) -> Your Speakers');
                     console.log('🔊 AudioContext state:', audioContext.state);
-                    console.log('🔊 Audio routing will persist for entire call');
+                    console.log('🔊 Audio should now be playing directly to your speakers!');
+                    console.log('🔊 If you still can\'t hear, your speakers/headphones might be the issue.');
+                    
+                    setAudioUnlocked(true);
                   }
                 } catch (e) {
-                  console.error('❌ Web Audio routing failed:', e);
-                  console.log('⚠️ Falling back to HTML5 audio element playback');
-                }
-                
-                // Check audio output device
-                if (mediaEl.setSinkId) {
-                  try {
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
-                    console.log('🔊 Available audio outputs:', audioOutputs.length);
-                    console.log('🔊 Current sink ID:', mediaEl.sinkId || '(default)');
-                  } catch (e) {
-                    console.warn('⚠️ Could not enumerate devices:', e);
-                  }
-                } else {
-                  console.warn('⚠️ setSinkId not supported - cannot check audio output device');
-                }
-                
-                const playPromise = mediaEl.play();
-                if (playPromise && typeof playPromise.then === 'function') {
-                  playPromise.then(() => {
-                    console.log('✅ Media playback started successfully');
-                    if (mediaEl.tagName === 'AUDIO') {
-                      console.log('🔊 Audio playing, volume:', mediaEl.volume, 'muted:', mediaEl.muted);
-                      setAudioUnlocked(true);
-                      
-                      // Log playback state
-                      console.log('🔊 REMOTE AUDIO PLAYBACK STATE:');
-                      console.log('  - paused:', mediaEl.paused);
-                      console.log('  - volume:', mediaEl.volume);
-                      console.log('  - muted:', mediaEl.muted);
-                      console.log('  - readyState:', mediaEl.readyState);
-                      console.log('✅ If you can\'t hear audio, check your device volume and speakers!');
-                    }
-                  }).catch(err => {
-                    if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
-                      console.warn('⚠️ Media play interrupted, retrying shortly...');
-                      setTimeout(() => {
-                        mediaEl.play().then(() => setAudioUnlocked(true)).catch(() => {});
-                      }, 150);
-                    } else {
-                      console.error('❌ Play error:', err.name, err.message);
-                      console.log('💡 Browser blocked autoplay. User needs to click to enable audio.');
-                      // Don't set audioUnlocked - we'll show a button
-                    }
-                  });
+                  console.error('❌ Web Audio setup failed:', e);
                 }
               };
               
-              if (mediaEl.readyState >= 2) {
-                safePlay();
-              } else {
-                const onLoaded = () => {
-                  mediaEl.removeEventListener('loadedmetadata', onLoaded);
-                  console.log('📺 Media metadata loaded, starting playback');
-                  safePlay();
-                };
-                mediaEl.addEventListener('loadedmetadata', onLoaded);
-              }
+              // Call the Web Audio setup immediately
+              setupWebAudioPlayback();
             } catch (e) {
               console.error('❌ Error attaching remote stream:', e);
             }
@@ -806,62 +746,27 @@ export default function CallModal({
 
   const unlockAudio = async () => {
     console.log('🔓 Unlocking audio playback...');
-    if (otherVideo.current) {
-      try {
-        // Resume persistent AudioContext (required by some browsers)
-        try {
-          if (audioContextRef.current) {
-            if (audioContextRef.current.state === 'suspended') {
-              await audioContextRef.current.resume();
-              console.log('🔊 AudioContext resumed from suspended state');
-            }
-            console.log('🔊 AudioContext state:', audioContextRef.current.state);
-          }
-        } catch (e) {
-          console.warn('⚠️ AudioContext warning:', e);
+    try {
+      // Resume persistent AudioContext (required by some browsers)
+      if (audioContextRef.current) {
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+          console.log('🔊 AudioContext resumed from suspended state');
+          setAudioUnlocked(true);
         }
+        console.log('🔊 AudioContext state:', audioContextRef.current.state);
         
-        // Force audio settings before playing
-        otherVideo.current.muted = false;
-        otherVideo.current.volume = 1.0;
-        
-        // Check if srcObject has audio tracks
-        if (otherVideo.current.srcObject) {
-          const audioTracks = otherVideo.current.srcObject.getAudioTracks();
-          console.log('🔊 Audio tracks in element:', audioTracks.length);
-          audioTracks.forEach((track, idx) => {
-            track.enabled = true;
-            console.log(`🔊 Track ${idx}:`, {
-              enabled: track.enabled,
-              muted: track.muted,
-              readyState: track.readyState
-            });
-          });
-        } else {
-          console.error('❌ No srcObject on audio element!');
+        // Boost volume even more
+        if (gainNodeRef.current) {
+          gainNodeRef.current.gain.value = 3.0;
+          console.log('🔊 Volume boosted to 300% (3.0x)');
         }
-        
-        await otherVideo.current.play();
-        setAudioUnlocked(true);
-        console.log('✅ Audio unlocked and playing!');
-        
-        // Log current state
-        if (otherVideo.current.tagName === 'AUDIO') {
-          console.log('🔊 Audio state after unlock:', {
-            volume: otherVideo.current.volume,
-            muted: otherVideo.current.muted,
-            paused: otherVideo.current.paused,
-            readyState: otherVideo.current.readyState,
-            currentTime: otherVideo.current.currentTime,
-            duration: otherVideo.current.duration
-          });
-        }
-      } catch (err) {
-        console.error('❌ Failed to unlock audio:', err);
-        alert('Could not start audio playback. Please check your browser settings.');
+      } else {
+        console.error('❌ AudioContext not initialized!');
       }
-    } else {
-      console.error('❌ otherVideo ref is null!');
+    } catch (err) {
+      console.error('❌ Failed to unlock audio:', err);
+      alert('Could not start audio playback. Please check your browser settings.');
     }
   };
 
@@ -924,20 +829,24 @@ export default function CallModal({
                 </div>
               </div>
               
-              {/* Enable Audio Button - shows prominently when audio might be blocked */}
-              {(callStatus === "active" || callStatus === "connecting") && !audioUnlocked && remoteStreamReceived && (
-                <button
-                  onClick={unlockAudio}
-                  className="mt-6 bg-red-500 hover:bg-red-600 text-white px-12 py-6 rounded-full font-bold text-2xl shadow-2xl animate-pulse z-50"
-                >
-                  🔊 TAP HERE TO ENABLE AUDIO
-                </button>
-              )}
-              
-              {callStatus === "active" && audioUnlocked && (
-                <p className="mt-6 text-white text-lg">
-                  ✅ Audio enabled
-                </p>
+              {/* Enable Audio Button - ALWAYS show it for testing */}
+              {(callStatus === "active" || callStatus === "connecting") && remoteStreamReceived && (
+                <div className="mt-6 flex flex-col items-center gap-4">
+                  <button
+                    onClick={unlockAudio}
+                    className="bg-red-500 hover:bg-red-600 text-white px-12 py-6 rounded-full font-bold text-2xl shadow-2xl animate-pulse z-50"
+                  >
+                    🔊 CLICK HERE FOR AUDIO
+                  </button>
+                  {audioUnlocked && (
+                    <p className="text-white text-lg">
+                      ✅ Audio unlocked - Volume at 200%
+                    </p>
+                  )}
+                  <p className="text-white/80 text-sm">
+                    Click button to boost volume to 300%
+                  </p>
+                </div>
               )}
             </div>
           )}
