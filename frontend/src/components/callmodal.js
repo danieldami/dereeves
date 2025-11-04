@@ -18,8 +18,6 @@ export default function CallModal({
   const [callDuration, setCallDuration] = useState(0);
   const [callStartTime, setCallStartTime] = useState(null);
   const [remoteStreamReceived, setRemoteStreamReceived] = useState(false);
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
-  const [micLevel, setMicLevel] = useState(0);
 
   const myVideo = useRef();
   const otherVideo = useRef();
@@ -31,9 +29,6 @@ export default function CallModal({
   const connectionTimeoutRef = useRef(null);
   const callActiveRef = useRef(false);
   const isEndingCallRef = useRef(false);
-  const audioContextRef = useRef(null);
-  const audioSourceRef = useRef(null);
-  const gainNodeRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -130,43 +125,6 @@ export default function CallModal({
         
         if (myVideo.current) {
           myVideo.current.srcObject = stream;
-          console.log("📹 Local stream attached to myVideo element");
-        }
-        
-        // CONTINUOUS microphone level monitoring
-        try {
-          if (window.AudioContext && stream) {
-            const monitorContext = new (window.AudioContext || window.webkitAudioContext)();
-            const monitorSource = monitorContext.createMediaStreamSource(stream);
-            const analyser = monitorContext.createAnalyser();
-            analyser.fftSize = 256;
-            monitorSource.connect(analyser);
-            
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            
-            // Update mic level every 100ms
-            const micMonitor = setInterval(() => {
-              analyser.getByteFrequencyData(dataArray);
-              const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-              setMicLevel(Math.round(average));
-              
-              if (average > 0) {
-                console.log('🎤 YOUR MIC IS PICKING UP AUDIO! Level:', Math.round(average));
-              }
-            }, 100);
-            
-            // Clean up after 30 seconds
-            setTimeout(() => {
-              clearInterval(micMonitor);
-              monitorSource.disconnect();
-              analyser.disconnect();
-              monitorContext.close();
-            }, 30000);
-            
-            console.log('🎤 Microphone monitoring started. Speak into your mic - watch the level indicator on screen!');
-          }
-        } catch (e) {
-          console.error('❌ Mic monitoring failed:', e);
         }
 
         console.log("🔗 Creating peer connection...");
@@ -303,146 +261,73 @@ export default function CallModal({
           setCallStatus("active");
           setRemoteStreamReceived(true);
           
+          // Clear the connection timeout
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
             console.log("✅ Connection timeout cleared - stream received");
           }
           
+          // Start timer when stream is received (for receiver)
           if (!callStartTime) {
             setCallStartTime(Date.now());
           }
           
           if (otherVideo.current) {
             try {
-              // CRITICAL: Enable AND monitor all audio tracks in the remote stream
-              const audioTracks = remoteStream.getAudioTracks();
-              console.log('🔊 Remote audio tracks:', audioTracks.length);
-              audioTracks.forEach((track, idx) => {
-                console.log(`🔊 Remote audio track ${idx} INITIAL STATE:`, {
-                  enabled: track.enabled,
-                  muted: track.muted,
-                  readyState: track.readyState,
-                  label: track.label
-                });
-                
-                track.enabled = true; // Explicitly enable
-                
-                // Monitor remote track for mute/unmute events
-                track.onmute = () => {
-                  console.error(`❌ REMOTE audio track ${idx} was MUTED! (sender's mic is muted)`);
-                };
-                track.onunmute = () => {
-                  console.log(`✅ REMOTE audio track ${idx} was UNMUTED! (sender's mic is active)`);
-                  console.log('🔄 Setting up audio NOW that track is unmuted...');
-                  
-                  // Create a FRESH MediaStream with the unmuted track
-                  const freshStream = new MediaStream([track]);
-                  console.log('🔊 Created fresh MediaStream with unmuted track');
-                  
-                  // Call the setup function with the fresh stream
-                  setupWebAudioPlayback(freshStream);
-                };
-                track.onended = () => {
-                  console.warn(`⚠️ REMOTE audio track ${idx} ENDED.`);
-                };
-                
-                // CRITICAL: If track is muted, warn the user
-                if (track.muted) {
-                  console.error('❌ Remote track is muted! The other person\'s microphone might be muted or not working.');
-                  console.error('❌ Ask the other person to check their microphone permissions and hardware mute button.');
-                }
-                
-                console.log(`🔊 Remote audio track ${idx} FINAL STATE:`, {
-                  enabled: track.enabled,
-                  muted: track.muted,
-                  readyState: track.readyState
-                });
-              });
-              
-              // CRITICAL: Check if track is already unmuted, if not, wait for unmute event
-              const remoteTracks = remoteStream.getAudioTracks();
-              if (remoteTracks.length > 0 && !remoteTracks[0].muted) {
-                // Track is already unmuted, set up audio immediately
-                console.log('🔊 Track is already unmuted, setting up audio immediately...');
-                setupWebAudioPlayback(remoteStream);
-              } else {
-                console.log('⏳ Track is muted, waiting for unmute event before setting up audio...');
-                console.log('⏳ Audio will start automatically when the other person\'s mic unmutes');
-              }
-              
-              // CRITICAL: Use Web Audio API ONLY (not HTML audio element)
-              function setupWebAudioPlayback(stream) {
-                try {
-                  if (typeof window !== 'undefined' && window.AudioContext && stream) {
-                    console.log('🔊 Setting up Web Audio API for direct speaker output...');
-                    
-                    // Create or reuse AudioContext
-                    if (!audioContextRef.current) {
-                      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                      console.log('🔊 New AudioContext created');
-                    }
-                    
-                    const audioContext = audioContextRef.current;
-                    
-                    if (audioContext.state === 'suspended') {
-                      audioContext.resume();
-                      console.log('🔊 AudioContext resumed');
-                    }
-                    
-                    // Clean up old connections if they exist
-                    if (audioSourceRef.current) {
-                      try {
-                        audioSourceRef.current.disconnect();
-                      } catch (e) {}
-                    }
-                    if (gainNodeRef.current) {
-                      try {
-                        gainNodeRef.current.disconnect();
-                      } catch (e) {}
-                    }
-                    
-                    // Create source from the stream
-                    audioSourceRef.current = audioContext.createMediaStreamSource(stream);
-                    
-                    // Create gain node for volume control
-                    gainNodeRef.current = audioContext.createGain();
-                    gainNodeRef.current.gain.value = 3.0; // Boost volume to 300%
-                    
-                    // Connect: source -> gain -> destination (speakers)
-                    audioSourceRef.current.connect(gainNodeRef.current);
-                    gainNodeRef.current.connect(audioContext.destination);
-                    
-                    console.log('✅✅✅ DIRECT AUDIO ROUTING: Stream -> Gain(3.0x) -> Your Speakers');
-                    console.log('🔊 AudioContext state:', audioContext.state);
-                    console.log('🔊 Audio should now be LOUD and clear!');
-                    
-                    // Test if speakers are working by playing a brief test tone
-                    try {
-                      const oscillator = audioContext.createOscillator();
-                      const testGain = audioContext.createGain();
-                      oscillator.frequency.value = 440; // A4 note
-                      testGain.gain.value = 0.1; // Quiet test tone
-                      oscillator.connect(testGain);
-                      testGain.connect(audioContext.destination);
-                      oscillator.start();
+              otherVideo.current.srcObject = remoteStream;
+              const videoEl = otherVideo.current;
+              const safePlay = () => {
+                const playPromise = videoEl.play();
+                if (playPromise && typeof playPromise.then === 'function') {
+                  playPromise.catch(err => {
+                    // AbortError can happen if srcObject changes quickly; ignore
+                    if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
+                      console.warn('⚠️ Video play interrupted, retrying shortly...');
                       setTimeout(() => {
-                        oscillator.stop();
-                        console.log('🔊 Test tone completed. Did you hear a brief beep? If YES, your speakers work!');
-                      }, 200);
-                    } catch (e) {
-                      console.warn('⚠️ Could not play test tone:', e);
+                        videoEl.play().catch(() => {});
+                      }, 150);
+                    } else {
+                      console.error('Play error:', err);
                     }
-                    
-                    setAudioUnlocked(true);
-                  }
-                } catch (e) {
-                  console.error('❌ Web Audio setup failed:', e);
+                  });
                 }
+              };
+              if (videoEl.readyState >= 2) {
+                safePlay();
+              } else {
+                const onLoaded = () => {
+                  videoEl.removeEventListener('loadedmetadata', onLoaded);
+                  safePlay();
+                };
+                videoEl.addEventListener('loadedmetadata', onLoaded);
               }
             } catch (e) {
-              console.error('❌ Error attaching remote stream:', e);
+              console.error('Error attaching remote stream:', e);
             }
+          }
+        });
+
+        // Some browsers are more reliable with track events
+        peer.on('track', (track, stream) => {
+          console.log('🎯 TRACK event:', track.kind);
+          setRemoteStreamReceived(true);
+          try {
+            if (!remoteMediaRef.current) {
+              remoteMediaRef.current = new MediaStream();
+            }
+            if (!remoteMediaRef.current.getTracks().find(t => t.id === track.id)) {
+              remoteMediaRef.current.addTrack(track);
+            }
+            if (otherVideo.current) {
+              otherVideo.current.srcObject = remoteMediaRef.current;
+              const playPromise = otherVideo.current.play();
+              if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.catch(() => {});
+              }
+            }
+          } catch (e) {
+            console.error('Error handling track:', e);
           }
         });
 
@@ -655,32 +540,9 @@ export default function CallModal({
 
     return () => {
       console.log("🧹 Cleaning up call...");
-      
-      // Clean up Web Audio routing
-      if (audioSourceRef.current) {
-        try {
-          audioSourceRef.current.disconnect();
-          audioSourceRef.current = null;
-          console.log("🧹 Audio source disconnected");
-        } catch (e) {}
-      }
-      if (gainNodeRef.current) {
-        try {
-          gainNodeRef.current.disconnect();
-          gainNodeRef.current = null;
-          console.log("🧹 Gain node disconnected");
-        } catch (e) {}
-      }
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
-          console.log("🧹 AudioContext closed");
-        } catch (e) {}
-      }
-      
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => {
+          console.log("Stopping track:", track.kind);
           track.stop();
         });
         streamRef.current = null;
@@ -716,33 +578,17 @@ export default function CallModal({
     }
     
     console.log("📴 Ending call...");
+    console.log("📴 From:", currentUser._id);
+    console.log("📴 To:", otherUser._id);
     isEndingCallRef.current = true;
     
+    // Clear connection timeout if still active
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
     }
     
-    // Clean up Web Audio routing
-    if (audioSourceRef.current) {
-      try {
-        audioSourceRef.current.disconnect();
-        audioSourceRef.current = null;
-      } catch (e) {}
-    }
-    if (gainNodeRef.current) {
-      try {
-        gainNodeRef.current.disconnect();
-        gainNodeRef.current = null;
-      } catch (e) {}
-    }
-    if (audioContextRef.current) {
-      try {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      } catch (e) {}
-    }
-    
+    // Emit endCall socket event with both to and from
     socket.emit("endCall", { 
       to: otherUser._id,
       from: currentUser._id 
@@ -787,32 +633,6 @@ export default function CallModal({
         setIsVideoOff(!videoTrack.enabled);
         console.log("📹 Video off:", !videoTrack.enabled);
       }
-    }
-  };
-
-  const unlockAudio = async () => {
-    console.log('🔓 Unlocking audio playback...');
-    try {
-      // Resume persistent AudioContext (required by some browsers)
-      if (audioContextRef.current) {
-        if (audioContextRef.current.state === 'suspended') {
-          await audioContextRef.current.resume();
-          console.log('🔊 AudioContext resumed from suspended state');
-          setAudioUnlocked(true);
-        }
-        console.log('🔊 AudioContext state:', audioContextRef.current.state);
-        
-        // Boost volume even more
-        if (gainNodeRef.current) {
-          gainNodeRef.current.gain.value = 3.0;
-          console.log('🔊 Volume boosted to 300% (3.0x)');
-        }
-      } else {
-        console.error('❌ AudioContext not initialized!');
-      }
-    } catch (err) {
-      console.error('❌ Failed to unlock audio:', err);
-      alert('Could not start audio playback. Please check your browser settings.');
     }
   };
 
@@ -876,36 +696,10 @@ export default function CallModal({
               </div>
               
               {/* Microphone Level Indicator */}
-              <div className="mt-6 flex flex-col items-center gap-4 w-64">
-                <div className="text-white text-center">
-                  <p className="text-lg font-bold mb-2">🎤 Your Mic Level:</p>
-                  <div className="w-full bg-white/20 rounded-full h-8 overflow-hidden">
-                    <div 
-                      className="bg-green-400 h-full transition-all duration-100"
-                      style={{ width: `${Math.min(micLevel * 2, 100)}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-sm mt-2">
-                    {micLevel > 0 ? `✅ Mic working! (${micLevel})` : '❌ No mic input - SPEAK NOW!'}
-                  </p>
-                </div>
-                
-                {/* Enable Audio Button */}
-                {(callStatus === "active" || callStatus === "connecting") && remoteStreamReceived && (
-                  <div className="flex flex-col items-center gap-2">
-                    <button
-                      onClick={unlockAudio}
-                      className="bg-red-500 hover:bg-red-600 text-white px-12 py-6 rounded-full font-bold text-2xl shadow-2xl animate-pulse z-50"
-                    >
-                      🔊 BOOST VOLUME
-                    </button>
-                    {audioUnlocked && (
-                      <p className="text-white text-sm">
-                        ✅ Volume at 300%
-                      </p>
-                    )}
-                  </div>
-                )}
+              <div className="text-center text-white">
+                <div className="text-8xl mb-4">🎤</div>
+                <p className="text-2xl font-semibold">Audio Call</p>
+                <p className="text-lg text-gray-400 mt-2">{callStatus}</p>
               </div>
             </div>
           )}
