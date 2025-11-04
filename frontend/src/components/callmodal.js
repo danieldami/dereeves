@@ -130,42 +130,6 @@ export default function CallModal({
         if (myVideo.current) {
           myVideo.current.srcObject = stream;
         }
-        
-        // CRITICAL: Test if LOCAL mic is actually picking up audio
-        try {
-          if (window.AudioContext && stream) {
-            const testContext = new (window.AudioContext || window.webkitAudioContext)();
-            const testSource = testContext.createMediaStreamSource(stream);
-            const analyser = testContext.createAnalyser();
-            analyser.fftSize = 256;
-            testSource.connect(analyser);
-            
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            
-            // Check LOCAL mic levels 10 times over 4 seconds
-            let checkCount = 0;
-            const checkInterval = setInterval(() => {
-              analyser.getByteFrequencyData(dataArray);
-              const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-              console.log(`🎤 LOCAL MIC LEVEL CHECK ${checkCount + 1}/10: ${Math.round(average)} ${average > 5 ? '✅ YOUR MIC IS WORKING!' : '❌ YOUR MIC IS SILENT - SPEAK NOW!'}`);
-              
-              checkCount++;
-              if (checkCount >= 10) {
-                clearInterval(checkInterval);
-                testSource.disconnect();
-                analyser.disconnect();
-                testContext.close();
-                
-                if (average === 0) {
-                  console.error('❌❌❌ YOUR MICROPHONE IS NOT PICKING UP ANY AUDIO!');
-                  console.error('🔧 Check: 1) Windows mic privacy settings 2) Browser mic permissions 3) Physical mic mute button');
-                }
-              }
-            }, 400);
-          }
-        } catch (e) {
-          console.error('❌ Failed to test local mic levels:', e);
-        }
 
         console.log("🔗 Creating peer connection...");
 
@@ -396,37 +360,6 @@ export default function CallModal({
                       // Log current sinkId
                       if (mediaEl.sinkId !== undefined) {
                         console.log('🔊 Audio output device (sinkId):', mediaEl.sinkId || 'default');
-                      }
-                      
-                      // CRITICAL: Check if there's actual audio data in the stream
-                      if (window.AudioContext && remoteStream) {
-                        try {
-                          const testContext = new (window.AudioContext || window.webkitAudioContext)();
-                          const testSource = testContext.createMediaStreamSource(remoteStream);
-                          const analyser = testContext.createAnalyser();
-                          analyser.fftSize = 256;
-                          testSource.connect(analyser);
-                          
-                          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                          
-                          // Check audio levels 5 times over 2 seconds
-                          let checkCount = 0;
-                          const checkInterval = setInterval(() => {
-                            analyser.getByteFrequencyData(dataArray);
-                            const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-                            console.log(`🔊 REMOTE AUDIO LEVEL CHECK ${checkCount + 1}/5: ${Math.round(average)} ${average > 0 ? '✅ AUDIO DETECTED!' : '❌ SILENCE'}`);
-                            
-                            checkCount++;
-                            if (checkCount >= 5) {
-                              clearInterval(checkInterval);
-                              testSource.disconnect();
-                              analyser.disconnect();
-                              testContext.close();
-                            }
-                          }, 400);
-                        } catch (e) {
-                          console.error('❌ Failed to analyze audio levels:', e);
-                        }
                       }
                     })
                     .catch(err => {
