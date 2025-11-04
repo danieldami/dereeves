@@ -87,10 +87,11 @@ export default function CallModal({
 
         const peer = new Peer({
           initiator: isInitiator,
-          trickle: false, // Gather all ICE candidates before signaling
+          trickle: true, // Enable trickle - send signal immediately with candidates as they arrive
           stream: stream,
           config: {
-            iceServers
+            iceServers,
+            iceCandidatePoolSize: 10 // Pre-gather candidates for faster connection
           },
           offerOptions: {
             offerToReceiveAudio: true,
@@ -100,12 +101,7 @@ export default function CallModal({
 
         peerRef.current = peer;
 
-        // Timeout to force signal emission if ICE gathering is slow
-        const signalTimeout = setTimeout(() => {
-          console.warn("⚠️ ICE gathering timeout - but signal should have been sent already");
-          // With trickle:false, simple-peer waits for gathering to complete
-          // If this timeout fires, it means gathering is stuck
-        }, 5000);
+        let signalSent = false; // Track if we've sent the initial signal
 
         // Low-level ICE state diagnostics
         try {
@@ -200,29 +196,36 @@ export default function CallModal({
         }
 
         peer.on("signal", (signal) => {
-          clearTimeout(signalTimeout); // Clear the gathering timeout
-          
           console.log("📡 ========== PEER SIGNAL GENERATED ==========");
           console.log("📡 Signal type:", signal.type);
-          console.log("📡 Signal data:", signal);
+          console.log("📡 Signal sent before:", signalSent);
           
-          if (isInitiator) {
-            console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
-            socket.emit("callUser", {
-              userToCall: otherUser._id,
-              from: currentUser._id,
-              name: currentUser.name,
-              signal,
-              callType
-            });
-            console.log("✅ callUser emitted");
+          // With trickle:true, only send the FIRST signal (SDP offer/answer)
+          // Modern browsers include candidates in the SDP, so we don't need to send them separately
+          if (!signalSent) {
+            signalSent = true;
+            console.log("📡 Sending initial signal with SDP");
+            
+            if (isInitiator) {
+              console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
+              socket.emit("callUser", {
+                userToCall: otherUser._id,
+                from: currentUser._id,
+                name: currentUser.name,
+                signal,
+                callType
+              });
+              console.log("✅ callUser emitted");
+            } else {
+              console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
+              socket.emit("answerCall", {
+                signal,
+                to: otherUser._id
+              });
+              console.log("✅ answerCall emitted");
+            }
           } else {
-            console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
-            socket.emit("answerCall", {
-              signal,
-              to: otherUser._id
-            });
-            console.log("✅ answerCall emitted");
+            console.log("⏭️ Skipping subsequent signal (candidates already in SDP)");
           }
         });
 
