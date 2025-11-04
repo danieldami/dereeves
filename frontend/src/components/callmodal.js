@@ -213,6 +213,8 @@ export default function CallModal({
         peer.on("stream", (remoteStream) => {
           console.log("📺 ========== REMOTE STREAM RECEIVED ==========");
           console.log("📺 Tracks:", remoteStream.getTracks().map(t => t.kind));
+          
+          // Mark call as active when stream arrives
           callActiveRef.current = true;
           setCallStatus("active");
           setRemoteStreamReceived(true);
@@ -228,6 +230,46 @@ export default function CallModal({
           if (!callStartTime) {
             setCallStartTime(Date.now());
           }
+          
+          // Check ICE state and log warning if not connected
+          setTimeout(() => {
+            try {
+              const pc = peerRef.current?._pc;
+              if (pc) {
+                console.log("🔍 ICE state after stream received:", pc.iceConnectionState);
+                if (pc.iceConnectionState !== "connected" && pc.iceConnectionState !== "completed") {
+                  console.warn("⚠️ WARNING: Stream received but ICE not fully connected. State:", pc.iceConnectionState);
+                  // Force check stats anyway
+                  pc.getStats(null).then(stats => {
+                    let foundInbound = false;
+                    let foundOutbound = false;
+                    stats.forEach(report => {
+                      if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                        foundInbound = true;
+                        console.log('📊 INCOMING AUDIO RTP:', {
+                          bytesReceived: report.bytesReceived,
+                          packetsReceived: report.packetsReceived,
+                          packetsLost: report.packetsLost,
+                          jitter: report.jitter
+                        });
+                      }
+                      if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+                        foundOutbound = true;
+                        console.log('📊 OUTGOING AUDIO RTP:', {
+                          bytesSent: report.bytesSent,
+                          packetsSent: report.packetsSent
+                        });
+                      }
+                    });
+                    if (!foundInbound) console.warn('⚠️ No inbound RTP stats found!');
+                    if (!foundOutbound) console.warn('⚠️ No outbound RTP stats found!');
+                  }).catch(e => console.error('❌ Failed to get stats:', e));
+                }
+              }
+            } catch (e) {
+              console.error("Error checking ICE state:", e);
+            }
+          }, 2000);
           
           if (otherVideo.current) {
             try {
