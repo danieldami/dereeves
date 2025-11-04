@@ -75,7 +75,7 @@ export default function CallModal({
 
         console.log("🔗 Creating peer connection...");
 
-        // Build ICE servers with optional TURN from env
+        // STUN only (like Saturday's working version!)
         const iceServers = [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
@@ -83,44 +83,7 @@ export default function CallModal({
           { urls: "stun:stun3.l.google.com:19302" },
           { urls: "stun:stun4.l.google.com:19302" }
         ];
-        
-        const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
-        const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
-        const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-        
-        if (turnUrl && turnUser && turnCred) {
-          console.log("🧭 Using TURN server from env:", turnUrl);
-          // Add TURN server with both UDP and TCP for better connectivity
-          iceServers.push(
-            { 
-              urls: turnUrl, 
-              username: turnUser, 
-              credential: turnCred 
-            }
-          );
-          
-          // If it's a UDP TURN URL, also try TCP variant
-          if (turnUrl.includes(':80') || turnUrl.includes(':3478')) {
-            const tcpTurnUrl = turnUrl.replace(':80', ':443').replace(':3478', ':5349');
-            if (tcpTurnUrl !== turnUrl) {
-              iceServers.push(
-                { 
-                  urls: tcpTurnUrl, 
-                  username: turnUser, 
-                  credential: turnCred 
-                }
-              );
-              console.log("🧭 Also using TCP TURN server:", tcpTurnUrl);
-            }
-          }
-        } else {
-          console.warn("⚠️ No TURN credentials provided. Using STUN only.");
-          console.warn("⚠️ This may cause connection failures for users behind restrictive NATs.");
-          console.warn("💡 Configure TURN server in .env.local:");
-          console.warn("   NEXT_PUBLIC_TURN_URL=turn:your-server.com:3478");
-          console.warn("   NEXT_PUBLIC_TURN_USERNAME=your-username");
-          console.warn("   NEXT_PUBLIC_TURN_CREDENTIAL=your-credential");
-        }
+        console.log("🧭 Using STUN only (Saturday's working config)");
 
         const peer = new Peer({
           initiator: isInitiator,
