@@ -285,12 +285,24 @@ export default function CallModal({
                 console.log('🔊 Volume set to:', mediaEl.volume);
               }
               
-              const safePlay = () => {
+              const safePlay = async () => {
                 console.log('▶️ Attempting to play remote stream...');
                 console.log('▶️ Media element type:', mediaEl.tagName);
                 console.log('▶️ Media element readyState:', mediaEl.readyState);
                 console.log('▶️ Media element paused:', mediaEl.paused);
                 console.log('▶️ Media element muted:', mediaEl.muted);
+                
+                // CRITICAL: Set audio output to default device
+                try {
+                  if (typeof mediaEl.setSinkId === 'function') {
+                    await mediaEl.setSinkId('default');
+                    console.log('✅ Audio output device set to DEFAULT');
+                  } else {
+                    console.warn('⚠️ setSinkId not supported - cannot force default audio output');
+                  }
+                } catch (e) {
+                  console.error('❌ Failed to set audio output device:', e);
+                }
                 
                 const playPromise = mediaEl.play();
                 if (playPromise && typeof playPromise.then === 'function') {
@@ -300,6 +312,11 @@ export default function CallModal({
                       console.log('🔊 Volume:', mediaEl.volume);
                       console.log('🔊 Muted:', mediaEl.muted);
                       console.log('🔊 Paused:', mediaEl.paused);
+                      
+                      // Log current sinkId
+                      if (mediaEl.sinkId !== undefined) {
+                        console.log('🔊 Audio output device (sinkId):', mediaEl.sinkId || 'default');
+                      }
                     })
                     .catch(err => {
                       // AbortError can happen if srcObject changes quickly; ignore
