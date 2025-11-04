@@ -87,7 +87,7 @@ export default function CallModal({
 
         const peer = new Peer({
           initiator: isInitiator,
-          trickle: true, // Enable trickle ICE - send signal immediately
+          trickle: false, // Disable trickle - wait for all ICE candidates before signaling
           stream: stream,
           config: {
             iceServers
