@@ -275,35 +275,62 @@ export default function CallModal({
           
           if (otherVideo.current) {
             try {
+              console.log('🔊 Attaching remote stream to otherVideo element...');
               otherVideo.current.srcObject = remoteStream;
-              const videoEl = otherVideo.current;
+              const mediaEl = otherVideo.current;
+              
+              // Set volume to max (for audio elements)
+              if (mediaEl.volume !== undefined) {
+                mediaEl.volume = 1.0;
+                console.log('🔊 Volume set to:', mediaEl.volume);
+              }
+              
               const safePlay = () => {
-                const playPromise = videoEl.play();
+                console.log('▶️ Attempting to play remote stream...');
+                console.log('▶️ Media element type:', mediaEl.tagName);
+                console.log('▶️ Media element readyState:', mediaEl.readyState);
+                console.log('▶️ Media element paused:', mediaEl.paused);
+                console.log('▶️ Media element muted:', mediaEl.muted);
+                
+                const playPromise = mediaEl.play();
                 if (playPromise && typeof playPromise.then === 'function') {
-                  playPromise.catch(err => {
-                    // AbortError can happen if srcObject changes quickly; ignore
-                    if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
-                      console.warn('⚠️ Video play interrupted, retrying shortly...');
-                      setTimeout(() => {
-                        videoEl.play().catch(() => {});
-                      }, 150);
-                    } else {
-                      console.error('Play error:', err);
-                    }
-                  });
+                  playPromise
+                    .then(() => {
+                      console.log('✅✅✅ AUDIO PLAYBACK STARTED SUCCESSFULLY!');
+                      console.log('🔊 Volume:', mediaEl.volume);
+                      console.log('🔊 Muted:', mediaEl.muted);
+                      console.log('🔊 Paused:', mediaEl.paused);
+                    })
+                    .catch(err => {
+                      // AbortError can happen if srcObject changes quickly; ignore
+                      if (err && (err.name === 'AbortError' || err.message?.includes('interrupted'))) {
+                        console.warn('⚠️ Play interrupted, retrying shortly...');
+                        setTimeout(() => {
+                          mediaEl.play().catch(() => {});
+                        }, 150);
+                      } else {
+                        console.error('❌ Play error:', err);
+                        console.error('❌ This might be a browser autoplay restriction');
+                        console.error('❌ Try clicking on the page to enable audio');
+                      }
+                    });
                 }
               };
-              if (videoEl.readyState >= 2) {
+              
+              if (mediaEl.readyState >= 2) {
+                console.log('✅ Media already loaded, playing immediately');
                 safePlay();
               } else {
+                console.log('⏳ Waiting for media to load...');
                 const onLoaded = () => {
-                  videoEl.removeEventListener('loadedmetadata', onLoaded);
+                  console.log('✅ Media loaded! Playing now...');
+                  mediaEl.removeEventListener('loadedmetadata', onLoaded);
                   safePlay();
                 };
-                videoEl.addEventListener('loadedmetadata', onLoaded);
+                mediaEl.addEventListener('loadedmetadata', onLoaded);
               }
             } catch (e) {
-              console.error('Error attaching remote stream:', e);
+              console.error('❌ Error attaching remote stream:', e);
             }
           }
         });
@@ -672,8 +699,6 @@ export default function CallModal({
                 ref={otherVideo}
                 autoPlay
                 playsInline
-                muted={false}
-                volume={1.0}
                 controls={false}
                 style={{ display: 'none' }}
               />
