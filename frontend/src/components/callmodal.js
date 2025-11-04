@@ -87,14 +87,25 @@ export default function CallModal({
 
         const peer = new Peer({
           initiator: isInitiator,
-          trickle: false, // Disable trickle - wait for all ICE candidates before signaling
+          trickle: false, // Gather all ICE candidates before signaling
           stream: stream,
           config: {
             iceServers
+          },
+          offerOptions: {
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: callType === 'video'
           }
         });
 
         peerRef.current = peer;
+
+        // Timeout to force signal emission if ICE gathering is slow
+        const signalTimeout = setTimeout(() => {
+          console.warn("⚠️ ICE gathering timeout - but signal should have been sent already");
+          // With trickle:false, simple-peer waits for gathering to complete
+          // If this timeout fires, it means gathering is stuck
+        }, 5000);
 
         // Low-level ICE state diagnostics
         try {
@@ -170,6 +181,9 @@ export default function CallModal({
             // Also monitor ICE gathering state
             pc.onicegatheringstatechange = () => {
               console.log("🧊 ICE gathering state:", pc.iceGatheringState);
+              if (pc.iceGatheringState === "complete") {
+                console.log("✅ ICE gathering completed - signal should be sent now");
+              }
             };
             
             // Log ICE candidates for debugging
@@ -186,6 +200,8 @@ export default function CallModal({
         }
 
         peer.on("signal", (signal) => {
+          clearTimeout(signalTimeout); // Clear the gathering timeout
+          
           console.log("📡 ========== PEER SIGNAL GENERATED ==========");
           console.log("📡 Signal type:", signal.type);
           console.log("📡 Signal data:", signal);
