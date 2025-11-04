@@ -821,69 +821,30 @@ export default function CallModal({
       <div className="w-full h-full flex flex-col">
         {/* Video container - full screen */}
         <div className="flex-1 relative">
-          {callType === "video" ? (
-            <>
-              {/* Remote video - full screen */}
+          {/* Remote video - ALWAYS use video element (works for both video and audio!) */}
+          <video
+            ref={otherVideo}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+
+          {/* Local video - small corner (only for video calls) */}
+          {callType === "video" && (
+            <div className="absolute top-6 right-6 w-28 h-40 bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
               <video
-                ref={otherVideo}
+                ref={myVideo}
                 autoPlay
+                muted
                 playsInline
                 className="w-full h-full object-cover"
               />
-              
-              {/* Local video - small corner */}
-              <div className="absolute top-6 right-6 w-28 h-40 bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
-                <video
-                  ref={myVideo}
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </>
-          ) : (
-            /* Audio call view */
-            <div className="w-full h-full flex flex-col items-center justify-center">
-              {/* Audio element for remote stream - MUST be visible for audio to play! */}
-              <audio
-                ref={otherVideo}
-                autoPlay
-                playsInline
-                controls={false}
-                style={{ 
-                  position: 'absolute',
-                  top: '-9999px',
-                  left: '-9999px',
-                  width: '1px',
-                  height: '1px'
-                }}
-              />
-              {/* Audio element for local stream (muted to prevent echo) */}
-              <audio
-                ref={myVideo}
-                autoPlay
-                muted={true}
-                playsInline
-                controls={false}
-                style={{ 
-                  position: 'absolute',
-                  top: '-9999px',
-                  left: '-9999px',
-                  width: '1px',
-                  height: '1px'
-                }}
-              />
-              
-              <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center mb-8">
-                <div className="w-28 h-28 rounded-full bg-white/30 flex items-center justify-center">
-                  <span className="text-6xl text-white font-semibold">
-                    {otherUser?.name?.charAt(0)?.toUpperCase() || "?"}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Microphone Level Indicator */}
+            </div>
+          )}
+
+          {/* Audio call overlay - shown on top of video element for audio calls */}
+          {callType === "audio" && (
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center text-white">
                 <div className="text-8xl mb-4">🎤</div>
                 <p className="text-2xl font-semibold">Audio Call</p>
