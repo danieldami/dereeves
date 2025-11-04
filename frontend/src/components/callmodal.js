@@ -87,11 +87,13 @@ export default function CallModal({
 
         const peer = new Peer({
           initiator: isInitiator,
-          trickle: true, // Enable trickle - send signal immediately with candidates as they arrive
+          trickle: false, // Wait for ALL ICE candidates before signaling
           stream: stream,
           config: {
             iceServers,
-            iceCandidatePoolSize: 10 // Pre-gather candidates for faster connection
+            iceTransportPolicy: 'all', // Use all candidates
+            bundlePolicy: 'max-bundle', // Bundle all media on one transport
+            rtcpMuxPolicy: 'require' // Multiplex RTP and RTCP
           },
           offerOptions: {
             offerToReceiveAudio: true,
@@ -100,8 +102,6 @@ export default function CallModal({
         });
 
         peerRef.current = peer;
-
-        let signalSent = false; // Track if we've sent the initial signal
 
         // Low-level ICE state diagnostics
         try {
@@ -178,16 +178,23 @@ export default function CallModal({
             pc.onicegatheringstatechange = () => {
               console.log("🧊 ICE gathering state:", pc.iceGatheringState);
               if (pc.iceGatheringState === "complete") {
-                console.log("✅ ICE gathering completed - signal should be sent now");
+                console.log("✅ ICE gathering completed - signal will be sent with ALL candidates");
+              } else if (pc.iceGatheringState === "gathering") {
+                console.log("⏳ ICE gathering in progress - collecting candidates...");
               }
             };
             
             // Log ICE candidates for debugging
+            let candidateCount = { host: 0, srflx: 0, relay: 0 };
             pc.onicecandidate = (event) => {
               if (event.candidate) {
-                console.log("🧊 ICE candidate:", event.candidate.type, event.candidate.candidate);
+                const type = event.candidate.type;
+                candidateCount[type] = (candidateCount[type] || 0) + 1;
+                console.log(`🧊 ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}:`, type, event.candidate.candidate);
               } else {
-                console.log("🧊 ICE gathering complete");
+                console.log("✅ ICE gathering complete!");
+                console.log("📊 Total candidates gathered:", candidateCount);
+                console.log("📊 Candidate breakdown: host=" + candidateCount.host + ", srflx=" + candidateCount.srflx + ", relay=" + candidateCount.relay);
               }
             };
           }
@@ -195,37 +202,37 @@ export default function CallModal({
           console.warn("⚠️ Could not access peer connection internals:", e);
         }
 
+        // Safety timeout in case ICE gathering hangs (shouldn't happen with trickle:false)
+        const gatheringTimeout = setTimeout(() => {
+          console.error("❌ ICE gathering timeout - signal was not generated within 10 seconds");
+          console.error("This indicates ICE gathering is stuck. Check network/firewall/STUN servers.");
+        }, 10000);
+
         peer.on("signal", (signal) => {
+          clearTimeout(gatheringTimeout); // Clear timeout once signal is received
+          
           console.log("📡 ========== PEER SIGNAL GENERATED ==========");
           console.log("📡 Signal type:", signal.type);
-          console.log("📡 Signal sent before:", signalSent);
+          console.log("📡 Signal contains", signal.sdp ? "SDP with candidates" : "data");
           
-          // With trickle:true, only send the FIRST signal (SDP offer/answer)
-          // Modern browsers include candidates in the SDP, so we don't need to send them separately
-          if (!signalSent) {
-            signalSent = true;
-            console.log("📡 Sending initial signal with SDP");
-            
-            if (isInitiator) {
-              console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
-              socket.emit("callUser", {
-                userToCall: otherUser._id,
-                from: currentUser._id,
-                name: currentUser.name,
-                signal,
-                callType
-              });
-              console.log("✅ callUser emitted");
-            } else {
-              console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
-              socket.emit("answerCall", {
-                signal,
-                to: otherUser._id
-              });
-              console.log("✅ answerCall emitted");
-            }
+          // With trickle:false, this fires ONCE with ALL ICE candidates bundled in SDP
+          if (isInitiator) {
+            console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
+            socket.emit("callUser", {
+              userToCall: otherUser._id,
+              from: currentUser._id,
+              name: currentUser.name,
+              signal,
+              callType
+            });
+            console.log("✅ callUser emitted with complete ICE information");
           } else {
-            console.log("⏭️ Skipping subsequent signal (candidates already in SDP)");
+            console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
+            socket.emit("answerCall", {
+              signal,
+              to: otherUser._id
+            });
+            console.log("✅ answerCall emitted with complete ICE information");
           }
         });
 
