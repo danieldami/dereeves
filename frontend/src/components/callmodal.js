@@ -317,6 +317,37 @@ export default function CallModal({
                       if (mediaEl.sinkId !== undefined) {
                         console.log('🔊 Audio output device (sinkId):', mediaEl.sinkId || 'default');
                       }
+                      
+                      // CRITICAL: Check if there's actual audio data in the stream
+                      if (window.AudioContext && remoteStream) {
+                        try {
+                          const testContext = new (window.AudioContext || window.webkitAudioContext)();
+                          const testSource = testContext.createMediaStreamSource(remoteStream);
+                          const analyser = testContext.createAnalyser();
+                          analyser.fftSize = 256;
+                          testSource.connect(analyser);
+                          
+                          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                          
+                          // Check audio levels 5 times over 2 seconds
+                          let checkCount = 0;
+                          const checkInterval = setInterval(() => {
+                            analyser.getByteFrequencyData(dataArray);
+                            const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                            console.log(`🔊 REMOTE AUDIO LEVEL CHECK ${checkCount + 1}/5: ${Math.round(average)} ${average > 0 ? '✅ AUDIO DETECTED!' : '❌ SILENCE'}`);
+                            
+                            checkCount++;
+                            if (checkCount >= 5) {
+                              clearInterval(checkInterval);
+                              testSource.disconnect();
+                              analyser.disconnect();
+                              testContext.close();
+                            }
+                          }, 400);
+                        } catch (e) {
+                          console.error('❌ Failed to analyze audio levels:', e);
+                        }
+                      }
                     })
                     .catch(err => {
                       // AbortError can happen if srcObject changes quickly; ignore
