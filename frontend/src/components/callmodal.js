@@ -226,9 +226,14 @@ export default function CallModal({
 
         try {
           const pc = peer._pc;
+          console.log("🔍 peer._pc available:", !!pc);
+          console.log("🔍 peer object:", peer);
+          
           if (pc) {
             // Log initial ICE state
             console.log("🌐 INITIAL ICE state:", pc.iceConnectionState);
+            console.log("🌐 INITIAL connection state:", pc.connectionState);
+            console.log("🌐 Signaling state:", pc.signalingState);
             
             pc.oniceconnectionstatechange = () => {
               iceStateRef.current = pc.iceConnectionState;
