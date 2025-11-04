@@ -169,6 +169,7 @@ export default function CallModal({
 
         console.log("🔗 Creating peer connection...");
 
+        // STUN only (like Saturday's working version!)
         const iceServers = [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
@@ -177,36 +178,7 @@ export default function CallModal({
           { urls: "stun:stun4.l.google.com:19302" }
         ];
         
-        const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
-        const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
-        const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-        
-        if (turnUrl && turnUser && turnCred) {
-          console.log("🧭 Using TURN server from env:", turnUrl);
-          iceServers.push(
-            { 
-              urls: turnUrl, 
-              username: turnUser, 
-              credential: turnCred 
-            }
-          );
-          
-          if (turnUrl.includes(':80') || turnUrl.includes(':3478')) {
-            const tcpTurnUrl = turnUrl.replace(':80', ':443').replace(':3478', ':5349');
-            if (tcpTurnUrl !== turnUrl) {
-              iceServers.push(
-                { 
-                  urls: tcpTurnUrl, 
-                  username: turnUser, 
-                  credential: turnCred 
-                }
-              );
-              console.log("🧭 Also using TCP TURN server:", tcpTurnUrl);
-            }
-          }
-        } else {
-          console.warn("⚠️ No TURN credentials provided. Using STUN only.");
-        }
+        console.log("🧭 Using STUN only (Saturday's working config)");
 
         if (!Peer) {
           console.warn("Peer not available in demo");
