@@ -99,10 +99,19 @@ export default function CallModal({
         // Low-level ICE state diagnostics
         try {
           const pc = peer._pc; // simple-peer underlying RTCPeerConnection
+          console.log("🔍 peer._pc available:", !!pc);
+          console.log("🔍 peer object:", peer);
+          
           if (pc) {
+            // Log initial ICE state
+            console.log("🌐 INITIAL ICE state:", pc.iceConnectionState);
+            console.log("🌐 INITIAL connection state:", pc.connectionState);
+            console.log("🌐 Signaling state:", pc.signalingState);
+            
             pc.oniceconnectionstatechange = () => {
               iceStateRef.current = pc.iceConnectionState;
-              console.log("🌐 ICE state:", pc.iceConnectionState);
+              console.log("🌐 ICE STATE CHANGED TO:", pc.iceConnectionState);
+              console.log("🌐 Connection state:", pc.connectionState);
               
               if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
                 console.log("✅ ICE connection established successfully!");
@@ -119,6 +128,34 @@ export default function CallModal({
                 if (!callStartTime) {
                   setCallStartTime(Date.now());
                 }
+                
+                // Check WebRTC stats to see if audio is being transmitted
+                setTimeout(() => {
+                  pc.getStats(null).then(stats => {
+                    let foundInbound = false;
+                    let foundOutbound = false;
+                    stats.forEach(report => {
+                      if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                        foundInbound = true;
+                        console.log('📊 INCOMING AUDIO RTP:', {
+                          bytesReceived: report.bytesReceived,
+                          packetsReceived: report.packetsReceived,
+                          packetsLost: report.packetsLost,
+                          jitter: report.jitter
+                        });
+                      }
+                      if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+                        foundOutbound = true;
+                        console.log('📊 OUTGOING AUDIO RTP:', {
+                          bytesSent: report.bytesSent,
+                          packetsSent: report.packetsSent
+                        });
+                      }
+                    });
+                    if (!foundInbound) console.warn('⚠️ No inbound RTP stats found!');
+                    if (!foundOutbound) console.warn('⚠️ No outbound RTP stats found!');
+                  }).catch(e => console.error('❌ Failed to get stats:', e));
+                }, 2000);
               }
               
               // Log failures
