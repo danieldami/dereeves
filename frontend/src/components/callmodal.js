@@ -57,7 +57,11 @@ export default function CallModal({
             height: { ideal: 720 },
             facingMode: "user"
           } : false,
-          audio: true  // SIMPLIFIED: Just request audio without constraints
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         });
 
         console.log("✅ Media stream obtained:", stream.getTracks().map(t => t.kind));
@@ -241,6 +245,28 @@ export default function CallModal({
                 if (!callStartTime) {
                   setCallStartTime(Date.now());
                 }
+                
+                // Check WebRTC stats to see if audio is being transmitted
+                setTimeout(() => {
+                  pc.getStats(null).then(stats => {
+                    stats.forEach(report => {
+                      if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+                        console.log('📊 INCOMING AUDIO RTP:', {
+                          bytesReceived: report.bytesReceived,
+                          packetsReceived: report.packetsReceived,
+                          packetsLost: report.packetsLost,
+                          jitter: report.jitter
+                        });
+                      }
+                      if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+                        console.log('📊 OUTGOING AUDIO RTP:', {
+                          bytesSent: report.bytesSent,
+                          packetsSent: report.packetsSent
+                        });
+                      }
+                    });
+                  }).catch(e => console.error('❌ Failed to get stats:', e));
+                }, 2000);
               }
               
               if (pc.iceConnectionState === "failed") {
