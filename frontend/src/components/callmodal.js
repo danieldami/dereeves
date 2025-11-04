@@ -711,22 +711,34 @@ export default function CallModal({
           ) : (
             /* Audio call view */
             <div className="w-full h-full flex flex-col items-center justify-center">
-              {/* Hidden audio element for remote stream */}
+              {/* Audio element for remote stream - MUST be visible for audio to play! */}
               <audio
                 ref={otherVideo}
                 autoPlay
                 playsInline
                 controls={false}
-                style={{ display: 'none' }}
+                style={{ 
+                  position: 'absolute',
+                  top: '-9999px',
+                  left: '-9999px',
+                  width: '1px',
+                  height: '1px'
+                }}
               />
-              {/* Hidden audio element for local stream (muted to prevent echo) */}
+              {/* Audio element for local stream (muted to prevent echo) */}
               <audio
                 ref={myVideo}
                 autoPlay
                 muted={true}
                 playsInline
                 controls={false}
-                style={{ display: 'none' }}
+                style={{ 
+                  position: 'absolute',
+                  top: '-9999px',
+                  left: '-9999px',
+                  width: '1px',
+                  height: '1px'
+                }}
               />
               
               <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center mb-8">
