@@ -87,13 +87,14 @@ export default function CallModal({
 
         const peer = new Peer({
           initiator: isInitiator,
-          trickle: false, // Wait for ALL ICE candidates before signaling
+          trickle: true, // Send signal immediately - don't wait for gathering
           stream: stream,
           config: {
             iceServers,
-            iceTransportPolicy: 'all', // Use all candidates
-            bundlePolicy: 'max-bundle', // Bundle all media on one transport
-            rtcpMuxPolicy: 'require' // Multiplex RTP and RTCP
+            iceTransportPolicy: 'all',
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require',
+            iceCandidatePoolSize: 10 // Pre-gather some candidates
           },
           offerOptions: {
             offerToReceiveAudio: true,
@@ -102,6 +103,7 @@ export default function CallModal({
         });
 
         peerRef.current = peer;
+        let initialSignalSent = false;
 
         // Low-level ICE state diagnostics
         try {
@@ -202,37 +204,39 @@ export default function CallModal({
           console.warn("⚠️ Could not access peer connection internals:", e);
         }
 
-        // Safety timeout in case ICE gathering hangs (shouldn't happen with trickle:false)
-        const gatheringTimeout = setTimeout(() => {
-          console.error("❌ ICE gathering timeout - signal was not generated within 10 seconds");
-          console.error("This indicates ICE gathering is stuck. Check network/firewall/STUN servers.");
-        }, 10000);
-
         peer.on("signal", (signal) => {
-          clearTimeout(gatheringTimeout); // Clear timeout once signal is received
-          
           console.log("📡 ========== PEER SIGNAL GENERATED ==========");
           console.log("📡 Signal type:", signal.type);
-          console.log("📡 Signal contains", signal.sdp ? "SDP with candidates" : "data");
+          console.log("📡 Has SDP:", !!signal.sdp);
+          console.log("📡 Initial signal sent:", initialSignalSent);
           
-          // With trickle:false, this fires ONCE with ALL ICE candidates bundled in SDP
-          if (isInitiator) {
-            console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
-            socket.emit("callUser", {
-              userToCall: otherUser._id,
-              from: currentUser._id,
-              name: currentUser.name,
-              signal,
-              callType
-            });
-            console.log("✅ callUser emitted with complete ICE information");
+          // Only send the FIRST signal (offer/answer with SDP)
+          // Skip subsequent signals (individual ICE candidates)
+          // Modern browsers already include candidates in the initial SDP
+          if (!initialSignalSent && (signal.type === 'offer' || signal.type === 'answer')) {
+            initialSignalSent = true;
+            console.log("📡 ✅ Sending initial", signal.type, "with embedded ICE candidates");
+            
+            if (isInitiator) {
+              console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
+              socket.emit("callUser", {
+                userToCall: otherUser._id,
+                from: currentUser._id,
+                name: currentUser.name,
+                signal,
+                callType
+              });
+              console.log("✅ callUser emitted");
+            } else {
+              console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
+              socket.emit("answerCall", {
+                signal,
+                to: otherUser._id
+              });
+              console.log("✅ answerCall emitted");
+            }
           } else {
-            console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
-            socket.emit("answerCall", {
-              signal,
-              to: otherUser._id
-            });
-            console.log("✅ answerCall emitted with complete ICE information");
+            console.log("⏭️ Skipping signal - initial already sent or this is a candidate");
           }
         });
 
