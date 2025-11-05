@@ -125,11 +125,10 @@ const Hero = () => {
           Patricia Taylor
         </h2>
         <p className="text-xl text-gray-200 mb-10">
-          {1944-2024}
+          1944-2024
         </p>
         <a 
             href="/donate" 
-            onClick={handleLinkClick}
             className="block w-full text-center mt-2 px-3 py-2 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 shadow-sm transition duration-300"
           >
             Donate
