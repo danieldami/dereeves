@@ -175,7 +175,10 @@ export default function CallModal({
             // Log ICE candidates for debugging
             pc.onicecandidate = (event) => {
               if (event.candidate) {
-                console.log("🧊 ICE candidate:", event.candidate.type, event.candidate.candidate);
+                const type = event.candidate.type;
+                candidateCount[type] = (candidateCount[type] || 0) + 1;
+                console.log(`🧊 ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}:`, type, event.candidate.candidate);
+                console.log("🧊 ICE candidate payload:", event.candidate);
               } else {
                 console.log("🧊 ICE gathering complete");
               }
@@ -217,6 +220,7 @@ export default function CallModal({
             }
           } else if (signal.candidate) {
             console.log("📡 Sending ICE candidate to:", otherUser._id);
+            console.log("📡 Candidate details:", signal);
             socket.emit("iceCandidate", {
               candidate: signal,
               to: otherUser._id
@@ -442,7 +446,7 @@ export default function CallModal({
         }, 30000);
 
         const handleRemoteIceCandidate = ({ candidate }) => {
-          console.log("📡 Received ICE candidate from other user");
+          console.log("📡 Received ICE candidate from other user", candidate);
 
           if (!candidate) {
             console.warn("⚠️ ICE candidate payload missing candidate field");
