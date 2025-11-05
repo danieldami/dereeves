@@ -173,6 +173,7 @@ export default function CallModal({
             };
             
             // Log ICE candidates for debugging
+            const candidateCount = { host: 0, srflx: 0, relay: 0 };
             pc.onicecandidate = (event) => {
               if (event.candidate) {
                 const type = event.candidate.type;
