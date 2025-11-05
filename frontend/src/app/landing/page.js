@@ -111,7 +111,7 @@ const Hero = () => {
     <header className="relative w-full h-screen flex items-center justify-center text-center overflow-hidden pt-16">
       
       {/* Background Image/Video Placeholder */}
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/hero-bg-placeholder.jpg')", backgroundColor: '#1f2937' }}>
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/landing/kam.webp')" }}>
         {/* Dark Overlay for Text Readability */}
         <div className="absolute inset-0 bg-gray-900 opacity-50"></div>
       </div>
@@ -169,13 +169,10 @@ export default function LandingPage() {
         <Hero />
 
         {/* --- Section: Mission/Impact --- */}
-        <section id="mission" className="relative py-20 bg-cover bg-center" style={{ backgroundImage: "url('/landing/kam.webp')" }}>
-          {/* Dark overlay for better text readability */}
-          <div className="absolute inset-0 bg-black opacity-40"></div>
-          
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-4xl font-extrabold text-white mb-4">Our Vision and Commitment</h2>
-            <p className="max-w-3xl mx-auto text-xl text-white mb-12">
+        <section id="mission" className="py-20 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-4xl font-extrabold text-gray-900 mb-4">Our Vision and Commitment</h2>
+            <p className="max-w-3xl mx-auto text-xl text-gray-600 mb-12">
               We believe in sustainable, long-term change. Since 2006, we have been dedicated to uplifting communities and empowering individuals to reach their full potential.
             </p>
             
