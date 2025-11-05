@@ -116,76 +116,66 @@ const Hero = () => {
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70"></div>
       </div>
 
-      {/* Hero Content - Memorial Card */}
-      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-24">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden">
-          {/* Decorative Border Top */}
-          <div className="h-3 bg-gradient-to-r from-gray-400 via-gray-700 to-gray-400"></div>
+      {/* Hero Content - Direct on Background */}
+      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-24 text-center">
+        {/* Memorial Heading */}
+        <p className="text-sm sm:text-base text-white italic mb-6 leading-relaxed animate-fadeInUp drop-shadow-lg">
+          In Loving Memory
+        </p>
+        
+        <p className="text-base sm:text-lg text-white font-semibold mb-6 animate-fadeInUp drop-shadow-lg">
+          Mother • Sister • Wife
+        </p>
+
+        {/* Name */}
+        <h1 className="text-4xl sm:text-5xl lg:text-7xl font-serif font-bold text-white mb-6 animate-fadeInUp drop-shadow-2xl">
+          Patricia Taylor
+        </h1>
+
+        {/* Dates */}
+        <div className="flex items-center justify-center gap-3 mb-10 animate-fadeInUp">
+          <span className="text-2xl sm:text-3xl text-white font-light drop-shadow-lg">1944</span>
+          <span className="text-3xl sm:text-4xl text-white/80 drop-shadow-lg">—</span>
+          <span className="text-2xl sm:text-3xl text-white font-light drop-shadow-lg">2024</span>
+        </div>
+
+        {/* Decorative Divider */}
+        <div className="flex items-center justify-center my-8">
+          <div className="h-px bg-white/50 w-20"></div>
+          <div className="mx-4 text-white/80 text-xl drop-shadow-lg">✦</div>
+          <div className="h-px bg-white/50 w-20"></div>
+        </div>
+
+        {/* Memorial Message */}
+        <div className="max-w-2xl mx-auto mb-10">
+          <p className="text-sm sm:text-base text-white leading-relaxed drop-shadow-lg">
+            A life beautifully lived deserves to be beautifully remembered. 
+            Join us in honoring her memory and celebrating the love she shared with all of us.
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8">
+          <a 
+            href="/donate" 
+            className="w-full sm:w-auto px-8 py-3 border-2 border-white text-white rounded-full text-base font-semibold hover:bg-white hover:text-gray-900 transition duration-300 shadow-2xl backdrop-blur-sm bg-white/10"
+          >
+            💐 Donate to Family
+          </a>
           
-          <div className="p-6 sm:p-10 lg:p-16 text-center">
-            {/* Memorial Heading */}
-            <p className="text-sm sm:text-base text-gray-600 italic mb-6 leading-relaxed animate-fadeInUp">
-              In Loving Memory
-            </p>
-            
-            <p className="text-base sm:text-lg text-gray-700 font-semibold mb-6 animate-fadeInUp">
-              Mother • Sister • Wife
-            </p>
+          <a 
+            href="/register"
+            className="w-full sm:w-auto px-8 py-3 bg-white text-gray-900 rounded-full text-base font-semibold hover:bg-gray-100 transition duration-300 shadow-2xl"
+          >
+            Sign Up
+          </a>
 
-            {/* Name */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold text-gray-900 mb-6 animate-fadeInUp">
-              Patricia Taylor
-            </h1>
-
-            {/* Dates */}
-            <div className="flex items-center justify-center gap-3 mb-10 animate-fadeInUp">
-              <span className="text-2xl sm:text-3xl text-gray-600 font-light">1944</span>
-              <span className="text-3xl sm:text-4xl text-gray-400">—</span>
-              <span className="text-2xl sm:text-3xl text-gray-600 font-light">2024</span>
-            </div>
-
-            {/* Decorative Divider */}
-            <div className="flex items-center justify-center my-8">
-              <div className="h-px bg-gray-300 w-20"></div>
-              <div className="mx-4 text-gray-400 text-xl">✦</div>
-              <div className="h-px bg-gray-300 w-20"></div>
-            </div>
-
-            {/* Memorial Message */}
-            <div className="max-w-2xl mx-auto mb-10">
-              <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
-                A life beautifully lived deserves to be beautifully remembered. 
-                Join us in honoring her memory and celebrating the love she shared with all of us.
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8">
-              <a 
-                href="/donate" 
-                className="w-full sm:w-auto px-8 py-3 border-2 border-gray-700 text-gray-700 rounded-full text-base font-semibold hover:bg-gray-700 hover:text-white transition duration-300 shadow-lg"
-              >
-                💐 Donate to Family
-              </a>
-              
-              <a 
-                href="/register"
-                className="w-full sm:w-auto px-8 py-3 bg-gray-800 text-white rounded-full text-base font-semibold hover:bg-gray-900 transition duration-300 shadow-lg"
-              >
-                Sign Up
-              </a>
-
-              <a 
-                href="/login"
-                className="w-full sm:w-auto px-8 py-3 bg-gray-800 text-white rounded-full text-base font-semibold hover:bg-gray-900 transition duration-300 shadow-lg"
-              >
-                Log In
-              </a>
-            </div>
-          </div>
-
-          {/* Decorative Border Bottom */}
-          <div className="h-3 bg-gradient-to-r from-gray-400 via-gray-700 to-gray-400"></div>
+          <a 
+            href="/login"
+            className="w-full sm:w-auto px-8 py-3 bg-white text-gray-900 rounded-full text-base font-semibold hover:bg-gray-100 transition duration-300 shadow-2xl"
+          >
+            Log In
+          </a>
         </div>
       </div>
     </header>
