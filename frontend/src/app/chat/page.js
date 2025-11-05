@@ -689,7 +689,7 @@ const handleRejectCall = () => {
               
               <div className="flex-1">
                 <h1 className="text-xl font-bold flex items-center gap-1">
-                  Keanu Charles Reeves
+                  {admin?.name || "Admin"}
                   <svg 
                     className="w-6 h-6 inline-block flex-shrink-0" 
                     viewBox="0 0 40 40" 
@@ -777,7 +777,7 @@ const handleRejectCall = () => {
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-semibold opacity-75">
-                          {isCurrentUser ? "You" : "Admin"}
+                          {isCurrentUser ? "You" : admin?.name || "Admin"}
                         </span>
                       </div>
                       
