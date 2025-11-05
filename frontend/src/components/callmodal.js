@@ -172,14 +172,20 @@ export default function CallModal({
               console.log("🧊 ICE gathering state:", pc.iceGatheringState);
             };
             
-            // Log ICE candidates for debugging
+            // Manually forward ICE candidates
             const candidateCount = { host: 0, srflx: 0, relay: 0 };
             pc.onicecandidate = (event) => {
               if (event.candidate) {
                 const type = event.candidate.type;
                 candidateCount[type] = (candidateCount[type] || 0) + 1;
                 console.log(`🧊 ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}:`, type, event.candidate.candidate);
-                console.log("🧊 ICE candidate payload:", event.candidate);
+                
+                // Send the candidate to the other peer
+                console.log("📡 Sending ICE candidate to:", otherUser._id);
+                socket.emit("signal", {
+                  signal: { candidate: event.candidate },
+                  to: otherUser._id
+                });
               } else {
                 console.log("🧊 ICE gathering complete");
                 console.log("📊 Total candidates gathered:", candidateCount);
@@ -199,7 +205,8 @@ export default function CallModal({
           console.log("📡 Contains candidate:", !!signal.candidate);
           console.log("📡 Initial signal sent:", initialSignalSent);
 
-          // Send the initial offer/answer
+          // Only send the initial offer/answer SDP
+          // ICE candidates are handled manually via pc.onicecandidate
           if ((signal.type === "offer" || signal.type === "answer" || signal.sdp) && !initialSignalSent) {
             initialSignalSent = true;
             console.log("📡 ✅ Sending initial", signal.type || "SDP", "to other user");
@@ -222,15 +229,8 @@ export default function CallModal({
               });
               console.log("✅ answerCall emitted");
             }
-          } else if (signal.candidate) {
-            // Send trickle ICE candidates
-            console.log("📡 Sending ICE candidate signal to:", otherUser._id);
-            socket.emit("signal", {
-              signal,
-              to: otherUser._id
-            });
           } else {
-            console.log("⏭️ Skipping signal - already sent SDP or unrecognized payload");
+            console.log("⏭️ Skipping signal - ICE candidates handled separately");
           }
         });
 
@@ -451,11 +451,18 @@ export default function CallModal({
 
         // Handle incoming signals (including ICE candidates)
         const handleRemoteSignal = ({ signal }) => {
-          console.log("📡 Received signal from other user", signal);
-
           if (!signal) {
             console.warn("⚠️ Signal payload missing");
             return;
+          }
+
+          // Log what type of signal we received
+          if (signal.type) {
+            console.log("📡 Received SDP signal:", signal.type);
+          } else if (signal.candidate) {
+            console.log("📡 Received ICE candidate:", signal.candidate.candidate);
+          } else {
+            console.log("📡 Received unknown signal:", signal);
           }
 
           if (peerRef.current && !peerRef.current.destroyed) {
@@ -464,6 +471,7 @@ export default function CallModal({
               console.log("✅ Applied remote signal");
             } catch (error) {
               console.error("❌ Failed to apply remote signal:", error);
+              console.error("❌ Signal data:", signal);
             }
           } else {
             console.warn("⚠️ Cannot apply signal: peer is destroyed or not initialized");
