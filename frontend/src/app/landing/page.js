@@ -118,12 +118,22 @@ const Hero = () => {
 
       {/* Hero Content */}
       <div className="relative z-10 max-w-4xl px-6">
-        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white leading-tight mb-6 animate-fadeInUp">
-          Empowering Change, Building Futures.
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight mb-6 animate-fadeInUp">
+          In Loving Memory.
         </h1>
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-6 animate-fadeInUp">
+          Patricia Taylor
+        </h2>
         <p className="text-xl text-gray-200 mb-10">
-          Our foundation supports vital programs in education, health, and sustainable development.
+          {1944-2024}
         </p>
+        <a 
+            href="/donate" 
+            onClick={handleLinkClick}
+            className="block w-full text-center mt-2 px-3 py-2 border border-transparent text-base font-medium rounded-md text-white bg-red-600 hover:bg-red-700 shadow-sm transition duration-300"
+          >
+            Donate
+          </a>
         <a 
           href="/register"
           className="bg-indigo-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-xl mx-2"
