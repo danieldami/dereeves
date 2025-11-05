@@ -59,7 +59,7 @@ export default function AdminDashboard() {
     // Auto-scroll only if user is near bottom or hasn't manually scrolled up
     useEffect(() => {
         if (shouldAutoScroll) {
-            scrollToBottom();
+        scrollToBottom();
         }
     }, [messages, shouldAutoScroll]);
 
@@ -827,12 +827,19 @@ useEffect(() => {
                                                     {/* Message Text */}
                                                     {msg.content && <p className="break-words">{msg.content}</p>}
                                                     
-                                                    <p className={`text-xs mt-1 ${isAdmin ? "text-blue-100" : "text-gray-500"}`}>
+                                                    <div className="flex items-center justify-between mt-1">
+                                                        <p className={`text-xs ${isAdmin ? "text-blue-100" : "text-gray-500"}`}>
                                                         {new Date(msg.createdAt).toLocaleTimeString([], {
                                                             hour: '2-digit',
                                                             minute: '2-digit'
                                                         })}
                                                     </p>
+                                                        {isAdmin && (
+                                                            <span className="text-xs text-blue-100 ml-2">
+                                                                {msg.read ? "✓✓" : "✓"}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
