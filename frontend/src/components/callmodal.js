@@ -180,6 +180,17 @@ export default function CallModal({
                 candidateCount[type] = (candidateCount[type] || 0) + 1;
                 console.log(`🧊 ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}:`, type, event.candidate.candidate);
                 console.log("🧊 ICE candidate payload:", event.candidate);
+
+                const candidateSignal = event.candidate.toJSON ? event.candidate.toJSON() : {
+                  candidate: event.candidate.candidate,
+                  sdpMid: event.candidate.sdpMid,
+                  sdpMLineIndex: event.candidate.sdpMLineIndex
+                };
+                console.log("📡 Emitting ICE candidate to:", otherUser._id, candidateSignal);
+                socket.emit("iceCandidate", {
+                  candidate: candidateSignal,
+                  to: otherUser._id
+                });
               } else {
                 console.log("🧊 ICE gathering complete");
               }
@@ -220,12 +231,7 @@ export default function CallModal({
               console.log("✅ answerCall emitted");
             }
           } else if (signal.candidate) {
-            console.log("📡 Sending ICE candidate to:", otherUser._id);
-            console.log("📡 Candidate details:", signal);
-            socket.emit("iceCandidate", {
-              candidate: signal,
-              to: otherUser._id
-            });
+            console.log("📡 Signal contained candidate (already emitted in onicecandidate)", signal);
           } else {
             console.log("⏭️ Skipping signal - already sent SDP or unrecognized payload");
           }
