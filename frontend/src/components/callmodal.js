@@ -185,28 +185,44 @@ export default function CallModal({
           console.warn("⚠️ Could not access peer connection internals:", e);
         }
 
+        let initialSignalSent = false;
         peer.on("signal", (signal) => {
           console.log("📡 ========== PEER SIGNAL GENERATED ==========");
-          console.log("📡 Signal type:", signal.type);
-          console.log("📡 Signal data:", signal);
-          
-          if (isInitiator) {
-            console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
-            socket.emit("callUser", {
-              userToCall: otherUser._id,
-              from: currentUser._id,
-              name: currentUser.name,
-              signal,
-              callType
-            });
-            console.log("✅ callUser emitted");
-          } else {
-            console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
-            socket.emit("answerCall", {
-              signal,
+          console.log("📡 Signal type:", signal.type || "candidate");
+          console.log("📡 Has SDP:", !!signal.sdp);
+          console.log("📡 Contains candidate:", !!signal.candidate);
+          console.log("📡 Initial signal sent:", initialSignalSent);
+
+          if ((signal.type === "offer" || signal.type === "answer" || signal.sdp) && !initialSignalSent) {
+            initialSignalSent = true;
+            console.log("📡 ✅ Sending initial", signal.type || "SDP", "to other user");
+
+            if (isInitiator) {
+              console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
+              socket.emit("callUser", {
+                userToCall: otherUser._id,
+                from: currentUser._id,
+                name: currentUser.name,
+                signal,
+                callType
+              });
+              console.log("✅ callUser emitted");
+            } else {
+              console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
+              socket.emit("answerCall", {
+                signal,
+                to: otherUser._id
+              });
+              console.log("✅ answerCall emitted");
+            }
+          } else if (signal.candidate) {
+            console.log("📡 Sending ICE candidate to:", otherUser._id);
+            socket.emit("iceCandidate", {
+              candidate: signal,
               to: otherUser._id
             });
-            console.log("✅ answerCall emitted");
+          } else {
+            console.log("⏭️ Skipping signal - already sent SDP or unrecognized payload");
           }
         });
 
@@ -425,7 +441,26 @@ export default function CallModal({
           }
         }, 30000);
 
-        // Socket event handlers
+        const handleRemoteIceCandidate = ({ candidate }) => {
+          console.log("📡 Received ICE candidate from other user");
+
+          if (!candidate) {
+            console.warn("⚠️ ICE candidate payload missing candidate field");
+            return;
+          }
+
+          if (peerRef.current && !peerRef.current.destroyed) {
+            try {
+              peerRef.current.signal(candidate);
+              console.log("✅ Applied remote ICE candidate");
+            } catch (error) {
+              console.error("❌ Failed to apply remote ICE candidate:", error);
+            }
+          } else {
+            console.warn("⚠️ Cannot apply candidate - peer destroyed or unavailable");
+          }
+        };
+
         const handleCallAccepted = ({ signal }) => {
           console.log("✅ ========== CALL ACCEPTED ==========");
           console.log("✅ Received answer signal:", signal);
@@ -548,6 +583,7 @@ export default function CallModal({
         
         // Common events for both caller and receiver
         socket.on("callEnded", handleCallEnded);
+        socket.on("iceCandidate", handleRemoteIceCandidate);
 
         return () => {
           // Clear the connection timeout
@@ -564,6 +600,7 @@ export default function CallModal({
             socket.off("callError", handleCallError);
           }
           socket.off("callEnded", handleCallEnded);
+          socket.off("iceCandidate", handleRemoteIceCandidate);
         };
 
       } catch (error) {
