@@ -9,15 +9,42 @@ import Link from "next/link";
 import socket from "@/utils/socket";
 
 // --- Dashboard Navigation Links ---
-const DashboardNav = ({ userRole, handleLogout, router }) => {
+const DashboardNav = ({ userRole, handleLogout, router, admins }) => {
   const navItems = [
-    { name: "Go to Chat", href: "/chat", icon: "💬" },
     { name: "Change Password", action: () => router.push("/change-password"), icon: "🔒" },
   ];
 
   return (
     <div className="flex flex-col space-y-4">
       
+      {/* Show admin chat buttons for regular users */}
+      {userRole !== "admin" && admins && admins.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Contact Support</p>
+          {admins.map((admin) => (
+            <Link 
+              key={admin._id} 
+              href={`/chat?adminId=${admin._id}`} 
+              className="w-full flex items-center justify-start px-4 py-3 rounded-lg text-white font-medium bg-indigo-600 hover:bg-indigo-700 transition duration-150 shadow-md transform hover:scale-[1.01]"
+            >
+              <span className="mr-3 text-lg">💬</span>
+              Chat with {admin.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Show single admin chat button for admins */}
+      {userRole === "admin" && (
+        <Link 
+          href="/admin-dashboard" 
+          className="w-full flex items-center justify-start px-4 py-3 rounded-lg text-white font-medium bg-indigo-600 hover:bg-indigo-700 transition duration-150 shadow-md transform hover:scale-[1.01]"
+        >
+          <span className="mr-3 text-lg">💬</span>
+          Go to Admin Dashboard
+        </Link>
+      )}
+
       {navItems.map((item) => {
         if (item.role && item.role !== userRole) return null;
 
@@ -56,12 +83,14 @@ const DashboardNav = ({ userRole, handleLogout, router }) => {
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [admins, setAdmins] = useState([]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.push("/login");
     } else {
       fetchUser();
+      fetchAdmins();
     }
   }, []);
 
@@ -81,6 +110,16 @@ export default function DashboardPage() {
       } else {
           router.push("/login");
       }
+    }
+  };
+
+  const fetchAdmins = async () => {
+    try {
+      const res = await api.get("/messages/admin/info");
+      console.log("✅ Fetched admins:", res.data);
+      setAdmins(res.data);
+    } catch (error) {
+      console.error("Error fetching admins:", error);
     }
   };
 
@@ -135,7 +174,8 @@ export default function DashboardPage() {
         <DashboardNav 
           userRole={user.role} 
           handleLogout={handleLogout} 
-          router={router} 
+          router={router}
+          admins={admins}
         />
       </aside>
 

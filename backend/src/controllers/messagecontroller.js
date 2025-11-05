@@ -75,20 +75,20 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-// Get admin user (for regular users to fetch admin ID)
+// Get all admin users (for regular users to fetch admin IDs)
 export const getAdmin = async (req, res) => {
   try {
     console.log("📥 Received GET /messages/admin/info request from:", req.user?.email || "unknown user");
 
-    const admin = await User.findOne({ role: "admin" }).select("-password");
+    const admins = await User.find({ role: "admin" }).select("-password");
     
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
+    if (!admins || admins.length === 0) {
+      return res.status(404).json({ message: "No admins found" });
     }
 
-    res.status(200).json(admin);
+    res.status(200).json(admins);
   } catch (error) {
-    console.error("Get admin error:", error);
+    console.error("Get admins error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

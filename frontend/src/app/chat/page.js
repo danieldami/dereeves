@@ -1,7 +1,7 @@
 //C:\Users\HP\dereeves\frontend\src\app\chat\page.js
 "use client";
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import socket from "@/utils/socket";
 import api from "@/utils/api";
 import CallModal from "@/components/callmodal";
@@ -9,6 +9,7 @@ import IncomingCallModal from "@/components/incomingcallmodal";
 
 export default function ChatPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [user, setUser] = useState(null);
@@ -63,12 +64,29 @@ export default function ChatPage() {
       socket.emit("register", { userId: normalizedUser._id, role: "user" });
       console.log("✅ [USER] Registration emitted");
 
+      // Get adminId from query params
+      const adminId = searchParams.get("adminId");
+      console.log("🔍 [USER] Admin ID from query:", adminId);
+
       console.log("📩 [USER] Fetching admin info...");
-      let adminRes;
+      let selectedAdmin;
       try {
-        adminRes = await api.get("/messages/admin/info");
-        console.log("✅ [USER] Admin info fetched:", adminRes.data);
-        setAdmin(adminRes.data);
+        const adminsRes = await api.get("/messages/admin/info");
+        console.log("✅ [USER] Admins fetched:", adminsRes.data);
+        
+        // If adminId is provided, find that specific admin, otherwise use the first one
+        if (adminId) {
+          selectedAdmin = adminsRes.data.find(admin => admin._id === adminId);
+          if (!selectedAdmin) {
+            console.warn("⚠️ [USER] Specified admin not found, using first admin");
+            selectedAdmin = adminsRes.data[0];
+          }
+        } else {
+          selectedAdmin = adminsRes.data[0];
+        }
+        
+        console.log("✅ [USER] Selected admin:", selectedAdmin);
+        setAdmin(selectedAdmin);
       } catch (error) {
         console.error("❌ [USER] Error fetching admin info:", error);
         if (error.response?.status === 401) {
@@ -83,7 +101,7 @@ export default function ChatPage() {
 
       console.log("📩 [USER] Fetching messages...");
       try {
-        const messagesRes = await api.get(`/messages/${adminRes.data._id}`);
+        const messagesRes = await api.get(`/messages/${selectedAdmin._id}`);
         console.log("✅ [USER] Messages fetched:", messagesRes.data.length);
         setMessages(messagesRes.data);
         fetchUnreadCount();
@@ -110,7 +128,7 @@ export default function ChatPage() {
   };
 
   initChat();
-}, [router]);
+}, [router, searchParams]);
 
   // Handle socket reconnection
 useEffect(() => {
