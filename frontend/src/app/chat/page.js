@@ -1,13 +1,13 @@
 //C:\Users\HP\dereeves\frontend\src\app\chat\page.js
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import socket from "@/utils/socket";
 import api from "@/utils/api";
 import CallModal from "@/components/callmodal";
 import IncomingCallModal from "@/components/incomingcallmodal";
 
-export default function ChatPage() {
+function ChatPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [messages, setMessages] = useState([]);
@@ -780,5 +780,13 @@ const handleRejectCall = () => {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><p className="text-xl text-gray-600">Loading chat...</p></div>}>
+      <ChatPageContent />
+    </Suspense>
   );
 }
