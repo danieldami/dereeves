@@ -155,18 +155,19 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-gradient-to-br from-gray-50 to-gray-100">
       
-      <aside className="w-64 bg-white border-r border-gray-100 shadow-xl p-6 flex flex-col items-center">
+      {/* Sidebar - Hidden on mobile, shown on desktop */}
+      <aside className="hidden lg:flex lg:w-72 bg-white border-r border-gray-200 shadow-xl p-6 flex-col items-center">
         
-        <h2 className="text-2xl font-extrabold text-indigo-700 mb-8">
+        <h2 className="text-2xl font-extrabold text-gray-800 mb-8">
             Dashboard
         </h2>
 
-        <div className="text-center mb-10 pb-4 border-b border-gray-100 w-full">
+        <div className="text-center mb-10 pb-4 border-b border-gray-200 w-full">
             <p className="text-sm font-medium text-gray-800">{user.name}</p>
             <p className="text-xs text-gray-500">{user.email}</p>
-            <span className="inline-flex items-center mt-2 px-3 py-1 text-xs font-semibold rounded-full text-indigo-600 bg-indigo-100">
+            <span className="inline-flex items-center mt-2 px-3 py-1 text-xs font-semibold rounded-full text-gray-700 bg-gray-200">
                 {user.role === 'admin' ? 'Administrator' : 'Community Member'}
             </span>
         </div>
@@ -179,20 +180,128 @@ export default function DashboardPage() {
         />
       </aside>
 
-      <main className="flex-1 p-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">
-            Welcome Back, {user.name.split(' ')[0]}!
-        </h1>
-        
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Your Quick Overview</h2>
-          <p className="text-gray-600">
-            Click the chat button to talk with the customer care
-          </p>
-
-          
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        {/* Mobile Header with Menu */}
+        <div className="lg:hidden sticky top-0 z-20 bg-white shadow-md px-4 py-3 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-bold text-gray-800">Memorial Dashboard</h2>
+            <button
+              onClick={handleLogout}
+              className="text-sm text-red-600 hover:text-red-700 font-medium flex items-center gap-1"
+            >
+              <span>🚪</span> Logout
+            </button>
+          </div>
         </div>
 
+        {/* Memorial Content */}
+        <div className="px-4 py-6 lg:px-8 lg:py-10 max-w-5xl mx-auto">
+          
+          {/* Memorial Header */}
+          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden mb-6">
+            {/* Decorative Border */}
+            <div className="h-2 bg-gradient-to-r from-gray-400 via-gray-600 to-gray-400"></div>
+            
+            <div className="p-6 sm:p-8 lg:p-12 text-center">
+              {/* Invitation Text */}
+              <p className="text-sm sm:text-base text-gray-600 italic mb-6 leading-relaxed">
+                Join us to mourn the 1 year remembrance of our beloved
+              </p>
+              <p className="text-base sm:text-lg text-gray-700 font-semibold mb-4">
+                Mother • Sister • Wife
+              </p>
+
+              {/* Name */}
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-gray-900 mb-4">
+                Patricia Taylor
+              </h1>
+
+              {/* Dates */}
+              <div className="flex items-center justify-center gap-3 mb-8">
+                <span className="text-xl sm:text-2xl text-gray-600 font-light">1944</span>
+                <span className="text-2xl sm:text-3xl text-gray-400">—</span>
+                <span className="text-xl sm:text-2xl text-gray-600 font-light">2024</span>
+              </div>
+
+              {/* Decorative Divider */}
+              <div className="flex items-center justify-center my-8">
+                <div className="h-px bg-gray-300 w-16"></div>
+                <div className="mx-4 text-gray-400">✦</div>
+                <div className="h-px bg-gray-300 w-16"></div>
+              </div>
+
+              {/* Memorial Message */}
+              <div className="max-w-2xl mx-auto">
+                <p className="text-sm sm:text-base text-gray-700 leading-relaxed mb-6">
+                  In loving memory of a remarkable woman whose warmth, kindness, and spirit touched the hearts of everyone she met. 
+                  Though she is no longer with us, her legacy lives on through the countless lives she enriched.
+                </p>
+
+                {/* Donation Notice */}
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 sm:p-6 mt-8">
+                  <p className="text-sm sm:text-base text-gray-700 font-medium mb-2">
+                    💐 Support the Family
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    To donate to the family or send condolences, please contact management using the chat options below.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Decorative Border */}
+            <div className="h-2 bg-gradient-to-r from-gray-400 via-gray-600 to-gray-400"></div>
+          </div>
+
+          {/* Mobile Navigation Cards */}
+          <div className="lg:hidden space-y-4 mt-8">
+            <div className="bg-white rounded-xl shadow-lg p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Contact Support</p>
+              
+              {user.role !== "admin" && admins && admins.length > 0 && (
+                <div className="space-y-3">
+                  {admins.map((admin) => (
+                    <Link 
+                      key={admin._id} 
+                      href={`/chat?adminId=${admin._id}`} 
+                      className="w-full flex items-center justify-start px-4 py-3 rounded-lg text-white font-medium bg-gray-700 hover:bg-gray-800 transition duration-150 shadow-md"
+                    >
+                      <span className="mr-3 text-lg">💬</span>
+                      Chat with {admin.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {user.role === "admin" && (
+                <Link 
+                  href="/admin-dashboard" 
+                  className="w-full flex items-center justify-start px-4 py-3 rounded-lg text-white font-medium bg-gray-700 hover:bg-gray-800 transition duration-150 shadow-md"
+                >
+                  <span className="mr-3 text-lg">💬</span>
+                  Go to Admin Dashboard
+                </Link>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg p-4">
+              <button
+                onClick={() => router.push("/change-password")}
+                className="w-full flex items-center justify-start px-4 py-3 rounded-lg text-white font-medium bg-gray-700 hover:bg-gray-800 transition duration-150 shadow-md"
+              >
+                <span className="mr-3 text-lg">🔒</span>
+                Change Password
+              </button>
+            </div>
+          </div>
+
+          {/* User Info Card for Mobile */}
+          <div className="lg:hidden mt-4 bg-white rounded-xl shadow-lg p-4 text-center">
+            <p className="text-sm font-medium text-gray-800">{user.name}</p>
+            <p className="text-xs text-gray-500 mt-1">{user.email}</p>
+          </div>
+        </div>
       </main>
     </div>
   );
