@@ -372,11 +372,11 @@ io.on("connection", (socket) => {
     console.log(`🔴 ====================================`);
   });
 
-  // ICE candidate exchange
-  socket.on("iceCandidate", ({ candidate, to }) => {
+  // Signal relay (for ICE candidates and other WebRTC signals)
+  socket.on("signal", ({ signal, to }) => {
     const receiverData = onlineUsers.get(to);
     if (receiverData && receiverData.socketId) {
-      io.to(receiverData.socketId).emit("iceCandidate", { candidate });
+      io.to(receiverData.socketId).emit("signal", { signal });
     }
   });
 

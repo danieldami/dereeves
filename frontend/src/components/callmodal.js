@@ -180,19 +180,10 @@ export default function CallModal({
                 candidateCount[type] = (candidateCount[type] || 0) + 1;
                 console.log(`🧊 ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}:`, type, event.candidate.candidate);
                 console.log("🧊 ICE candidate payload:", event.candidate);
-
-                const candidateSignal = event.candidate.toJSON ? event.candidate.toJSON() : {
-                  candidate: event.candidate.candidate,
-                  sdpMid: event.candidate.sdpMid,
-                  sdpMLineIndex: event.candidate.sdpMLineIndex
-                };
-                console.log("📡 Emitting ICE candidate to:", otherUser._id, candidateSignal);
-                socket.emit("iceCandidate", {
-                  candidate: candidateSignal,
-                  to: otherUser._id
-                });
               } else {
                 console.log("🧊 ICE gathering complete");
+                console.log("📊 Total candidates gathered:", candidateCount);
+                console.log("📊 Candidate breakdown: host=" + candidateCount.host + ", srflx=" + candidateCount.srflx + ", relay=" + candidateCount.relay);
               }
             };
           }
@@ -208,6 +199,7 @@ export default function CallModal({
           console.log("📡 Contains candidate:", !!signal.candidate);
           console.log("📡 Initial signal sent:", initialSignalSent);
 
+          // Send the initial offer/answer
           if ((signal.type === "offer" || signal.type === "answer" || signal.sdp) && !initialSignalSent) {
             initialSignalSent = true;
             console.log("📡 ✅ Sending initial", signal.type || "SDP", "to other user");
@@ -231,7 +223,12 @@ export default function CallModal({
               console.log("✅ answerCall emitted");
             }
           } else if (signal.candidate) {
-            console.log("📡 Signal contained candidate (already emitted in onicecandidate)", signal);
+            // Send trickle ICE candidates
+            console.log("📡 Sending ICE candidate signal to:", otherUser._id);
+            socket.emit("signal", {
+              signal,
+              to: otherUser._id
+            });
           } else {
             console.log("⏭️ Skipping signal - already sent SDP or unrecognized payload");
           }
@@ -452,23 +449,24 @@ export default function CallModal({
           }
         }, 30000);
 
-        const handleRemoteIceCandidate = ({ candidate }) => {
-          console.log("📡 Received ICE candidate from other user", candidate);
+        // Handle incoming signals (including ICE candidates)
+        const handleRemoteSignal = ({ signal }) => {
+          console.log("📡 Received signal from other user", signal);
 
-          if (!candidate) {
-            console.warn("⚠️ ICE candidate payload missing candidate field");
+          if (!signal) {
+            console.warn("⚠️ Signal payload missing");
             return;
           }
 
           if (peerRef.current && !peerRef.current.destroyed) {
             try {
-              peerRef.current.signal(candidate);
-              console.log("✅ Applied remote ICE candidate");
+              peerRef.current.signal(signal);
+              console.log("✅ Applied remote signal");
             } catch (error) {
-              console.error("❌ Failed to apply remote ICE candidate:", error);
+              console.error("❌ Failed to apply remote signal:", error);
             }
           } else {
-            console.warn("⚠️ Cannot apply candidate - peer destroyed or unavailable");
+            console.warn("⚠️ Cannot apply signal: peer is destroyed or not initialized");
           }
         };
 
@@ -594,7 +592,7 @@ export default function CallModal({
         
         // Common events for both caller and receiver
         socket.on("callEnded", handleCallEnded);
-        socket.on("iceCandidate", handleRemoteIceCandidate);
+        socket.on("signal", handleRemoteSignal);
 
         return () => {
           // Clear the connection timeout
@@ -611,7 +609,7 @@ export default function CallModal({
             socket.off("callError", handleCallError);
           }
           socket.off("callEnded", handleCallEnded);
-          socket.off("iceCandidate", handleRemoteIceCandidate);
+          socket.off("signal", handleRemoteSignal);
         };
 
       } catch (error) {
