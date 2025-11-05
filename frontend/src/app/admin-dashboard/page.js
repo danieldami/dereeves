@@ -796,9 +796,9 @@ useEffect(() => {
                                                     {msg.fileUrl && (
                                                         <div className="mb-2">
                                                             {msg.fileType?.startsWith('image/') ? (
-                                                                <a href={`${process.env.NEXT_PUBLIC_API_URL || 'https://dereevesfoundations.com'}${msg.fileUrl}`} target="_blank" rel="noopener noreferrer">
+                                                                <a href={`https://dereevesfoundations.com${msg.fileUrl}`} target="_blank" rel="noopener noreferrer">
                                                                     <img 
-                                                                        src={`${process.env.NEXT_PUBLIC_API_URL || 'https://dereevesfoundations.com'}${msg.fileUrl}`}
+                                                                        src={`https://dereevesfoundations.com${msg.fileUrl}`}
                                                                         alt={msg.fileName}
                                                                         className="max-w-full rounded cursor-pointer hover:opacity-90 transition-opacity"
                                                                         style={{ maxHeight: '200px' }}
@@ -806,7 +806,7 @@ useEffect(() => {
                                                                 </a>
                                                             ) : (
                                                                 <a 
-                                                                    href={`${process.env.NEXT_PUBLIC_API_URL || 'https://dereevesfoundations.com'}${msg.fileUrl}`}
+                                                                    href={`https://dereevesfoundations.com${msg.fileUrl}`}
                                                                     download={msg.fileName}
                                                                     className={`flex items-center gap-2 p-2 rounded ${isAdmin ? 'bg-blue-500' : 'bg-gray-100'} hover:opacity-90 transition-opacity`}
                                                                 >
