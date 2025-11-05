@@ -111,7 +111,7 @@ const Hero = () => {
     <header className="relative w-full h-screen flex items-center justify-center text-center overflow-hidden pt-16">
       
       {/* Background Image/Video Placeholder */}
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/landing/kam.webp')" }}>
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/landing/kam.jpg')" }}>
         {/* Dark Overlay for Text Readability */}
         <div className="absolute inset-0 bg-gray-900 opacity-50"></div>
       </div>
@@ -121,7 +121,7 @@ const Hero = () => {
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight mb-6 animate-fadeInUp">
           In Loving Memory.
         </h1>
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-6 animate-fadeInUp">
+        <h2 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white leading-tight mb-6 animate-fadeInUp">
           Patricia Taylor
         </h2>
         <p className="text-xl text-gray-200 mb-10">
@@ -133,6 +133,8 @@ const Hero = () => {
           >
             Donate
           </a>
+          <br></br>
+          <br></br>
         <a 
           href="/register"
           className="bg-indigo-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-indigo-700 transition duration-300 transform hover:scale-105 shadow-xl mx-2"
