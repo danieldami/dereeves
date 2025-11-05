@@ -75,7 +75,7 @@ export default function CallModal({
 
         console.log("🔗 Creating peer connection...");
 
-        // STUN only (like Saturday's working version!)
+        // Build ICE servers with optional TURN from env
         const iceServers = [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
@@ -83,44 +83,63 @@ export default function CallModal({
           { urls: "stun:stun3.l.google.com:19302" },
           { urls: "stun:stun4.l.google.com:19302" }
         ];
-        console.log("🧭 Using STUN only (Saturday's working config)");
+        
+        const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
+        const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
+        const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
+        
+        if (turnUrl && turnUser && turnCred) {
+          console.log("🧭 Using TURN server from env:", turnUrl);
+          // Add TURN server with both UDP and TCP for better connectivity
+          iceServers.push(
+            { 
+              urls: turnUrl, 
+              username: turnUser, 
+              credential: turnCred 
+            }
+          );
+          
+          // If it's a UDP TURN URL, also try TCP variant
+          if (turnUrl.includes(':80') || turnUrl.includes(':3478')) {
+            const tcpTurnUrl = turnUrl.replace(':80', ':443').replace(':3478', ':5349');
+            if (tcpTurnUrl !== turnUrl) {
+              iceServers.push(
+                { 
+                  urls: tcpTurnUrl, 
+                  username: turnUser, 
+                  credential: turnCred 
+                }
+              );
+              console.log("🧭 Also using TCP TURN server:", tcpTurnUrl);
+            }
+          }
+        } else {
+          console.warn("⚠️ No TURN credentials provided. Using STUN only.");
+          console.warn("⚠️ This may cause connection failures for users behind restrictive NATs.");
+          console.warn("💡 Configure TURN server in .env.local:");
+          console.warn("   NEXT_PUBLIC_TURN_URL=turn:your-server.com:3478");
+          console.warn("   NEXT_PUBLIC_TURN_USERNAME=your-username");
+          console.warn("   NEXT_PUBLIC_TURN_CREDENTIAL=your-credential");
+        }
 
         const peer = new Peer({
           initiator: isInitiator,
-          trickle: true, // Send signal immediately - don't wait for gathering
+          trickle: true, // Enable trickle ICE - send signal immediately
           stream: stream,
           config: {
-            iceServers,
-            iceTransportPolicy: 'all',
-            bundlePolicy: 'max-bundle',
-            rtcpMuxPolicy: 'require',
-            iceCandidatePoolSize: 10 // Pre-gather some candidates
-          },
-          offerOptions: {
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: callType === 'video'
+            iceServers
           }
         });
 
         peerRef.current = peer;
-        let initialSignalSent = false;
 
         // Low-level ICE state diagnostics
         try {
           const pc = peer._pc; // simple-peer underlying RTCPeerConnection
-          console.log("🔍 peer._pc available:", !!pc);
-          console.log("🔍 peer object:", peer);
-          
           if (pc) {
-            // Log initial ICE state
-            console.log("🌐 INITIAL ICE state:", pc.iceConnectionState);
-            console.log("🌐 INITIAL connection state:", pc.connectionState);
-            console.log("🌐 Signaling state:", pc.signalingState);
-            
             pc.oniceconnectionstatechange = () => {
               iceStateRef.current = pc.iceConnectionState;
-              console.log("🌐 ICE STATE CHANGED TO:", pc.iceConnectionState);
-              console.log("🌐 Connection state:", pc.connectionState);
+              console.log("🌐 ICE state:", pc.iceConnectionState);
               
               if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
                 console.log("✅ ICE connection established successfully!");
@@ -137,34 +156,6 @@ export default function CallModal({
                 if (!callStartTime) {
                   setCallStartTime(Date.now());
                 }
-                
-                // Check WebRTC stats to see if audio is being transmitted
-                setTimeout(() => {
-                  pc.getStats(null).then(stats => {
-                    let foundInbound = false;
-                    let foundOutbound = false;
-                    stats.forEach(report => {
-                      if (report.type === 'inbound-rtp' && report.kind === 'audio') {
-                        foundInbound = true;
-                        console.log('📊 INCOMING AUDIO RTP:', {
-                          bytesReceived: report.bytesReceived,
-                          packetsReceived: report.packetsReceived,
-                          packetsLost: report.packetsLost,
-                          jitter: report.jitter
-                        });
-                      }
-                      if (report.type === 'outbound-rtp' && report.kind === 'audio') {
-                        foundOutbound = true;
-                        console.log('📊 OUTGOING AUDIO RTP:', {
-                          bytesSent: report.bytesSent,
-                          packetsSent: report.packetsSent
-                        });
-                      }
-                    });
-                    if (!foundInbound) console.warn('⚠️ No inbound RTP stats found!');
-                    if (!foundOutbound) console.warn('⚠️ No outbound RTP stats found!');
-                  }).catch(e => console.error('❌ Failed to get stats:', e));
-                }, 2000);
               }
               
               // Log failures
@@ -179,24 +170,14 @@ export default function CallModal({
             // Also monitor ICE gathering state
             pc.onicegatheringstatechange = () => {
               console.log("🧊 ICE gathering state:", pc.iceGatheringState);
-              if (pc.iceGatheringState === "complete") {
-                console.log("✅ ICE gathering completed - signal will be sent with ALL candidates");
-              } else if (pc.iceGatheringState === "gathering") {
-                console.log("⏳ ICE gathering in progress - collecting candidates...");
-              }
             };
             
             // Log ICE candidates for debugging
-            let candidateCount = { host: 0, srflx: 0, relay: 0 };
             pc.onicecandidate = (event) => {
               if (event.candidate) {
-                const type = event.candidate.type;
-                candidateCount[type] = (candidateCount[type] || 0) + 1;
-                console.log(`🧊 ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}:`, type, event.candidate.candidate);
+                console.log("🧊 ICE candidate:", event.candidate.type, event.candidate.candidate);
               } else {
-                console.log("✅ ICE gathering complete!");
-                console.log("📊 Total candidates gathered:", candidateCount);
-                console.log("📊 Candidate breakdown: host=" + candidateCount.host + ", srflx=" + candidateCount.srflx + ", relay=" + candidateCount.relay);
+                console.log("🧊 ICE gathering complete");
               }
             };
           }
@@ -207,44 +188,31 @@ export default function CallModal({
         peer.on("signal", (signal) => {
           console.log("📡 ========== PEER SIGNAL GENERATED ==========");
           console.log("📡 Signal type:", signal.type);
-          console.log("📡 Has SDP:", !!signal.sdp);
-          console.log("📡 Initial signal sent:", initialSignalSent);
+          console.log("📡 Signal data:", signal);
           
-          // Only send the FIRST signal (offer/answer with SDP)
-          // Skip subsequent signals (individual ICE candidates)
-          // Modern browsers already include candidates in the initial SDP
-          if (!initialSignalSent && (signal.type === 'offer' || signal.type === 'answer')) {
-            initialSignalSent = true;
-            console.log("📡 ✅ Sending initial", signal.type, "with embedded ICE candidates");
-            
-            if (isInitiator) {
-              console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
-              socket.emit("callUser", {
-                userToCall: otherUser._id,
-                from: currentUser._id,
-                name: currentUser.name,
-                signal,
-                callType
-              });
-              console.log("✅ callUser emitted");
-            } else {
-              console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
-              socket.emit("answerCall", {
-                signal,
-                to: otherUser._id
-              });
-              console.log("✅ answerCall emitted");
-            }
+          if (isInitiator) {
+            console.log("📞 CALLER: Emitting callUser to:", otherUser._id);
+            socket.emit("callUser", {
+              userToCall: otherUser._id,
+              from: currentUser._id,
+              name: currentUser.name,
+              signal,
+              callType
+            });
+            console.log("✅ callUser emitted");
           } else {
-            console.log("⏭️ Skipping signal - initial already sent or this is a candidate");
+            console.log("✅ RECEIVER: Emitting answerCall to:", otherUser._id);
+            socket.emit("answerCall", {
+              signal,
+              to: otherUser._id
+            });
+            console.log("✅ answerCall emitted");
           }
         });
 
         peer.on("stream", (remoteStream) => {
           console.log("📺 ========== REMOTE STREAM RECEIVED ==========");
           console.log("📺 Tracks:", remoteStream.getTracks().map(t => t.kind));
-          
-          // Mark call as active when stream arrives
           callActiveRef.current = true;
           setCallStatus("active");
           setRemoteStreamReceived(true);
@@ -260,46 +228,6 @@ export default function CallModal({
           if (!callStartTime) {
             setCallStartTime(Date.now());
           }
-          
-          // Check ICE state and log warning if not connected
-          setTimeout(() => {
-            try {
-              const pc = peerRef.current?._pc;
-              if (pc) {
-                console.log("🔍 ICE state after stream received:", pc.iceConnectionState);
-                if (pc.iceConnectionState !== "connected" && pc.iceConnectionState !== "completed") {
-                  console.warn("⚠️ WARNING: Stream received but ICE not fully connected. State:", pc.iceConnectionState);
-                  // Force check stats anyway
-                  pc.getStats(null).then(stats => {
-                    let foundInbound = false;
-                    let foundOutbound = false;
-                    stats.forEach(report => {
-                      if (report.type === 'inbound-rtp' && report.kind === 'audio') {
-                        foundInbound = true;
-                        console.log('📊 INCOMING AUDIO RTP:', {
-                          bytesReceived: report.bytesReceived,
-                          packetsReceived: report.packetsReceived,
-                          packetsLost: report.packetsLost,
-                          jitter: report.jitter
-                        });
-                      }
-                      if (report.type === 'outbound-rtp' && report.kind === 'audio') {
-                        foundOutbound = true;
-                        console.log('📊 OUTGOING AUDIO RTP:', {
-                          bytesSent: report.bytesSent,
-                          packetsSent: report.packetsSent
-                        });
-                      }
-                    });
-                    if (!foundInbound) console.warn('⚠️ No inbound RTP stats found!');
-                    if (!foundOutbound) console.warn('⚠️ No outbound RTP stats found!');
-                  }).catch(e => console.error('❌ Failed to get stats:', e));
-                }
-              }
-            } catch (e) {
-              console.error("Error checking ICE state:", e);
-            }
-          }, 2000);
           
           if (otherVideo.current) {
             try {
