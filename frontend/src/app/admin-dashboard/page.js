@@ -24,6 +24,8 @@ export default function AdminDashboard() {
     const [callTargetUser, setCallTargetUser] = useState(null);
     const [incomingCall, setIncomingCall] = useState(null);
     const [showIncomingModal, setShowIncomingModal] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [filePreview, setFilePreview] = useState(null);
 
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -441,23 +443,65 @@ useEffect(() => {
     // 🎯 SEND MESSAGE
     // ----------------------------------------------------------------
     const sendMessage = async () => {
-        if (!newMsg.trim() || !admin || !selectedUser) return;
-
-        const msgData = {
-            sender: admin._id,
-            receiver: selectedUser._id,
-            content: newMsg.trim(),
-        };
+        if ((!newMsg.trim() && !selectedFile) || !admin || !selectedUser) return;
 
         try {
-            const response = await api.post("/messages", msgData);
+            const formData = new FormData();
+            formData.append('sender', admin._id);
+            formData.append('receiver', selectedUser._id);
+            
+            if (newMsg.trim()) {
+                formData.append('content', newMsg.trim());
+            }
+            
+            if (selectedFile) {
+                formData.append('file', selectedFile);
+            }
+
+            const response = await api.post("/messages", formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            
             setMessages((prev) => [...prev, response.data]);
             socket.emit("sendMessage", response.data);
             setNewMsg("");
+            setSelectedFile(null);
+            setFilePreview(null);
         } catch (error) {
             console.error("❌ Error:", error);
             alert(`Failed to send message: ${error.response?.data?.message || error.message}`);
         }
+    };
+
+    const handleFileSelect = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Check file size (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+
+            setSelectedFile(file);
+
+            // Create preview for images
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setFilePreview(reader.result);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                setFilePreview(null);
+            }
+        }
+    };
+
+    const removeFile = () => {
+        setSelectedFile(null);
+        setFilePreview(null);
     };
 
     const handleKeyPress = (e) => {
@@ -748,7 +792,41 @@ useEffect(() => {
                                                         isAdmin ? "bg-blue-600 text-white" : "bg-white text-black"
                                                     }`}
                                                 >
-                                                    <p className="break-words">{msg.content}</p>
+                                                    {/* File Attachment */}
+                                                    {msg.fileUrl && (
+                                                        <div className="mb-2">
+                                                            {msg.fileType?.startsWith('image/') ? (
+                                                                <a href={`${process.env.NEXT_PUBLIC_API_URL || 'https://dereevesfoundations.com'}${msg.fileUrl}`} target="_blank" rel="noopener noreferrer">
+                                                                    <img 
+                                                                        src={`${process.env.NEXT_PUBLIC_API_URL || 'https://dereevesfoundations.com'}${msg.fileUrl}`}
+                                                                        alt={msg.fileName}
+                                                                        className="max-w-full rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                                                        style={{ maxHeight: '200px' }}
+                                                                    />
+                                                                </a>
+                                                            ) : (
+                                                                <a 
+                                                                    href={`${process.env.NEXT_PUBLIC_API_URL || 'https://dereevesfoundations.com'}${msg.fileUrl}`}
+                                                                    download={msg.fileName}
+                                                                    className={`flex items-center gap-2 p-2 rounded ${isAdmin ? 'bg-blue-500' : 'bg-gray-100'} hover:opacity-90 transition-opacity`}
+                                                                >
+                                                                    <span className="text-2xl">📄</span>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className={`text-sm font-medium truncate ${isAdmin ? 'text-white' : 'text-gray-900'}`}>
+                                                                            {msg.fileName}
+                                                                        </p>
+                                                                        <p className={`text-xs ${isAdmin ? 'text-blue-100' : 'text-gray-500'}`}>
+                                                                            {msg.fileSize ? `${(msg.fileSize / 1024).toFixed(1)} KB` : 'Download'}
+                                                                        </p>
+                                                                    </div>
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Message Text */}
+                                                    {msg.content && <p className="break-words">{msg.content}</p>}
+                                                    
                                                     <p className={`text-xs mt-1 ${isAdmin ? "text-blue-100" : "text-gray-500"}`}>
                                                         {new Date(msg.createdAt).toLocaleTimeString([], {
                                                             hour: '2-digit',
@@ -765,7 +843,49 @@ useEffect(() => {
                         </div>
 
                         <div className="bg-white border-t p-4">
+                            {/* File Preview */}
+                            {selectedFile && (
+                                <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            {filePreview ? (
+                                                <img src={filePreview} alt="Preview" className="w-16 h-16 object-cover rounded" />
+                                            ) : (
+                                                <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center">
+                                                    <span className="text-2xl">📄</span>
+                                                </div>
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.name}</p>
+                                                <p className="text-xs text-gray-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={removeFile}
+                                            className="ml-3 text-red-600 hover:text-red-700 font-medium text-sm"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Input Row */}
                             <div className="flex gap-2">
+                                {/* File Upload Button */}
+                                <label className="cursor-pointer">
+                                    <input
+                                        type="file"
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                        accept="image/*,application/pdf,.doc,.docx,.txt,.zip"
+                                    />
+                                    <div className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg transition-colors flex items-center justify-center">
+                                        <span className="text-xl">📎</span>
+                                    </div>
+                                </label>
+
+                                {/* Text Input */}
                                 <input
                                     type="text"
                                     className="border border-gray-300 p-3 flex-grow rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
@@ -774,9 +894,11 @@ useEffect(() => {
                                     onChange={(e) => setNewMsg(e.target.value)}
                                     onKeyPress={handleKeyPress}
                                 />
+
+                                {/* Send Button */}
                                 <button
                                     onClick={sendMessage}
-                                    disabled={!newMsg.trim()}
+                                    disabled={!newMsg.trim() && !selectedFile}
                                     className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                                 >
                                     Send

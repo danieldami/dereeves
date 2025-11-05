@@ -94,6 +94,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Serve uploaded files
+const uploadsPath = path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsPath));
+console.log("📁 Serving uploads from:", uploadsPath);
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);

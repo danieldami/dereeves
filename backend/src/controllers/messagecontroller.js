@@ -42,12 +42,18 @@ export const getMessages = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { sender, receiver, content } = req.body;
+    const file = req.file; // Multer adds this
 
-    // Validation
-    if (!sender || !receiver || !content) {
+    // Validation - either content or file must be present
+    if (!sender || !receiver) {
       return res.status(400).json({ 
-        message: "Missing required fields",
-        required: { sender, receiver, content }
+        message: "Missing required fields: sender and receiver are required"
+      });
+    }
+
+    if (!content && !file) {
+      return res.status(400).json({ 
+        message: "Either message content or file attachment is required"
       });
     }
 
@@ -61,7 +67,23 @@ export const sendMessage = async (req, res) => {
       return res.status(404).json({ message: "Sender or receiver not found" });
     }
 
-    const message = new Message({ sender, receiver, content, read: false });
+    // Create message object
+    const messageData = { 
+      sender, 
+      receiver, 
+      content: content || '',  // Empty string if no content
+      read: false 
+    };
+
+    // Add file data if present
+    if (file) {
+      messageData.fileUrl = `/uploads/${file.filename}`;
+      messageData.fileName = file.originalname;
+      messageData.fileType = file.mimetype;
+      messageData.fileSize = file.size;
+    }
+
+    const message = new Message(messageData);
     await message.save();
 
     // Populate sender and receiver info

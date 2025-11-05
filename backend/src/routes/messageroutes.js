@@ -2,6 +2,7 @@
 import express from "express";
 import { getMessages, sendMessage, getAdmin, getUnreadCounts } from "../controllers/messagecontroller.js";
 import { protect } from "../middleware/authmiddleware.js";
+import upload from "../config/multer.js";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.get("/unread/counts", getUnreadCounts);
 // Get messages between current user and specific user
 router.get("/:userId", getMessages);
 
-// Send a message
-router.post("/", sendMessage);
+// Send a message (with optional file upload)
+router.post("/", upload.single('file'), sendMessage);
 
 export default router;

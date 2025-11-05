@@ -15,11 +15,28 @@ const messageSchema = new mongoose.Schema(
     },
     content: { 
       type: String, 
-      required: true 
+      required: false  // Not required anymore since messages can be file-only
     },
     read: {
       type: Boolean,
       default: false
+    },
+    // File attachment fields
+    fileUrl: {
+      type: String,
+      required: false
+    },
+    fileName: {
+      type: String,
+      required: false
+    },
+    fileType: {
+      type: String,
+      required: false
+    },
+    fileSize: {
+      type: Number,
+      required: false
     }
   },
   { timestamps: true }
