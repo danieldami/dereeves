@@ -125,12 +125,18 @@ export default function CallModal({
           console.log("🧭 Using default TURN servers (Metered.ca)");
         }
 
+        // Log the actual ICE servers configuration
+        console.log("🔍 ICE Servers configured:", iceServers.length, "servers");
+        console.log("🔍 TURN servers:", iceServers.filter(s => s.urls.includes('turn')).length);
+        console.log("🔍 Full config:", JSON.stringify(iceServers, null, 2));
+
         const peer = new Peer({
           initiator: isInitiator,
           trickle: true, // Enable trickle ICE - send signal immediately
           stream: stream,
           config: {
-            iceServers
+            iceServers,
+            iceTransportPolicy: 'all' // Try all connection types including relay
           }
         });
 
@@ -181,7 +187,8 @@ export default function CallModal({
               if (event.candidate) {
                 const type = event.candidate.type;
                 candidateCount[type] = (candidateCount[type] || 0) + 1;
-                console.log(`🧊 ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}:`, type, event.candidate.candidate);
+                const emoji = type === 'relay' ? '🔄' : type === 'srflx' ? '🌐' : '🏠';
+                console.log(`🧊 ${emoji} ICE candidate #${Object.values(candidateCount).reduce((a,b) => a+b, 0)}: ${type.toUpperCase()} - ${event.candidate.candidate}`);
                 
                 // Send the candidate to the other peer
                 console.log("📡 Sending ICE candidate to:", otherUser._id);
@@ -190,9 +197,13 @@ export default function CallModal({
                   to: otherUser._id
                 });
               } else {
-                console.log("🧊 ICE gathering complete");
-                console.log("📊 Total candidates gathered:", candidateCount);
-                console.log("📊 Candidate breakdown: host=" + candidateCount.host + ", srflx=" + candidateCount.srflx + ", relay=" + candidateCount.relay);
+                console.log("🧊 ========== ICE GATHERING COMPLETE ==========");
+                console.log("📊 Total candidates:", candidateCount);
+                console.log("📊 Breakdown: HOST=" + (candidateCount.host||0) + ", SRFLX=" + (candidateCount.srflx||0) + ", RELAY=" + (candidateCount.relay||0));
+                if (!candidateCount.relay || candidateCount.relay === 0) {
+                  console.warn("⚠️ WARNING: No TURN relay candidates! Connection may fail across different networks.");
+                  console.warn("⚠️ Possible issues: TURN servers unreachable, credentials invalid, or network blocking TURN ports.");
+                }
               }
             };
           }
