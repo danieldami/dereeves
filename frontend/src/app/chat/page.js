@@ -617,14 +617,6 @@ const handleRejectCall = () => {
   // Check if admin is online
   const isAdminOnline = onlineUserIdsSet.has(admin._id);
   const adminLastSeen = lastSeenData[admin._id];
-  
-  // Debug modal state
-  console.log("🔍 [DEBUG] Modal state:", {
-    showIncomingModal,
-    incomingCall: incomingCall ? "Present" : "Missing",
-    isCallModalOpen,
-    callType
-  });
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
