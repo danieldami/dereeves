@@ -141,7 +141,8 @@ export default function CallModal({
           stream: stream,
           config: {
             iceServers,
-            iceTransportPolicy: 'all' // Try all connection types including relay
+            iceTransportPolicy: 'relay', // FORCE relay-only for testing (use 'all' for production)
+            iceCandidatePoolSize: 10
           }
         });
 
