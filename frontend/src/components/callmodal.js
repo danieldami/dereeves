@@ -409,8 +409,23 @@ export default function CallModal({
             if (peerRef.current && !peerRef.current.destroyed) {
               console.log("🔥 Processing incoming signal...");
               try {
+                remoteDescriptionSet = true; // Mark remote description as set
                 peer.signal(incomingSignal);
                 console.log("✅ Incoming signal processed successfully - peer will now generate answer signal");
+                
+                // Process any queued candidates after setting remote description
+                if (candidateQueue.length > 0) {
+                  console.log(`📦 Processing ${candidateQueue.length} queued candidates from incoming call...`);
+                  candidateQueue.forEach(candidate => {
+                    try {
+                      peerRef.current.signal(candidate);
+                      console.log("✅ Applied queued candidate");
+                    } catch (err) {
+                      console.error("❌ Failed to apply queued candidate:", err);
+                    }
+                  });
+                  candidateQueue.length = 0; // Clear queue
+                }
               } catch (error) {
                 console.error("❌ Error processing incoming signal:", error);
               }
@@ -450,6 +465,10 @@ export default function CallModal({
         }, 60000);
 
         // Handle incoming signals (including ICE candidates)
+        // Queue for candidates received before remote description is set
+        const candidateQueue = [];
+        let remoteDescriptionSet = false;
+
         const handleRemoteSignal = ({ signal }) => {
           if (!signal) {
             console.warn("⚠️ Signal payload missing");
@@ -467,8 +486,41 @@ export default function CallModal({
 
           if (peerRef.current && !peerRef.current.destroyed) {
             try {
-              peerRef.current.signal(signal);
-              console.log("✅ Applied remote signal");
+              // If it's an SDP (offer/answer), mark that remote description will be set
+              if (signal.type === 'offer' || signal.type === 'answer') {
+                remoteDescriptionSet = true;
+                peerRef.current.signal(signal);
+                console.log("✅ Applied remote SDP");
+                
+                // Process any queued candidates
+                if (candidateQueue.length > 0) {
+                  console.log(`📦 Processing ${candidateQueue.length} queued candidates...`);
+                  candidateQueue.forEach(candidate => {
+                    try {
+                      peerRef.current.signal(candidate);
+                      console.log("✅ Applied queued candidate");
+                    } catch (err) {
+                      console.error("❌ Failed to apply queued candidate:", err);
+                    }
+                  });
+                  candidateQueue.length = 0; // Clear queue
+                }
+              } 
+              // If it's a candidate and remote description isn't set yet, queue it
+              else if (signal.candidate && !remoteDescriptionSet) {
+                console.log("📥 Queuing candidate until remote description is set");
+                candidateQueue.push(signal);
+              }
+              // If it's a candidate and remote description is set, apply immediately
+              else if (signal.candidate) {
+                peerRef.current.signal(signal);
+                console.log("✅ Applied remote candidate");
+              }
+              // Other signals (shouldn't happen, but handle gracefully)
+              else {
+                peerRef.current.signal(signal);
+                console.log("✅ Applied remote signal");
+              }
             } catch (error) {
               console.error("❌ Failed to apply remote signal:", error);
               console.error("❌ Signal data:", signal);
@@ -492,8 +544,24 @@ export default function CallModal({
             try {
               // Check if the peer connection is in a valid state to receive an answer
               if (signal) {
+                remoteDescriptionSet = true; // Mark remote description as set
                 peerRef.current.signal(signal);
                 console.log("✅ Answer signal processed successfully");
+                
+                // Process any queued candidates
+                if (candidateQueue.length > 0) {
+                  console.log(`📦 Processing ${candidateQueue.length} queued candidates from callAccepted...`);
+                  candidateQueue.forEach(candidate => {
+                    try {
+                      peerRef.current.signal(candidate);
+                      console.log("✅ Applied queued candidate");
+                    } catch (err) {
+                      console.error("❌ Failed to apply queued candidate:", err);
+                    }
+                  });
+                  candidateQueue.length = 0; // Clear queue
+                }
+                
                 // Start timer when call is accepted (for caller)
                 setCallStartTime(Date.now());
               } else {
