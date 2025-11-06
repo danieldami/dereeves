@@ -75,22 +75,45 @@ export default function CallModal({
 
         console.log("🔗 Creating peer connection...");
 
-        // Build ICE servers with optional TURN from env
+        // Build ICE servers with STUN and TURN
         const iceServers = [
+          // Multiple STUN servers for reliability
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
           { urls: "stun:stun2.l.google.com:19302" },
           { urls: "stun:stun3.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" }
+          { urls: "stun:stun4.l.google.com:19302" },
+          
+          // Free reliable TURN servers from Metered.ca
+          {
+            urls: "turn:a.relay.metered.ca:80",
+            username: "87e1849e84f3f78084e475c6",
+            credential: "wPujidqyM0GThsBz",
+          },
+          {
+            urls: "turn:a.relay.metered.ca:80?transport=tcp",
+            username: "87e1849e84f3f78084e475c6",
+            credential: "wPujidqyM0GThsBz",
+          },
+          {
+            urls: "turn:a.relay.metered.ca:443",
+            username: "87e1849e84f3f78084e475c6",
+            credential: "wPujidqyM0GThsBz",
+          },
+          {
+            urls: "turns:a.relay.metered.ca:443?transport=tcp",
+            username: "87e1849e84f3f78084e475c6",
+            credential: "wPujidqyM0GThsBz",
+          }
         ];
         
+        // Allow override from environment variables if provided
         const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
         const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
         const turnCred = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
         
         if (turnUrl && turnUser && turnCred) {
-          console.log("🧭 Using TURN server from env:", turnUrl);
-          // Add TURN server with both UDP and TCP for better connectivity
+          console.log("🧭 Using custom TURN server from env:", turnUrl);
           iceServers.push(
             { 
               urls: turnUrl, 
@@ -98,28 +121,8 @@ export default function CallModal({
               credential: turnCred 
             }
           );
-          
-          // If it's a UDP TURN URL, also try TCP variant
-          if (turnUrl.includes(':80') || turnUrl.includes(':3478')) {
-            const tcpTurnUrl = turnUrl.replace(':80', ':443').replace(':3478', ':5349');
-            if (tcpTurnUrl !== turnUrl) {
-              iceServers.push(
-                { 
-                  urls: tcpTurnUrl, 
-                  username: turnUser, 
-                  credential: turnCred 
-                }
-              );
-              console.log("🧭 Also using TCP TURN server:", tcpTurnUrl);
-            }
-          }
         } else {
-          console.warn("⚠️ No TURN credentials provided. Using STUN only.");
-          console.warn("⚠️ This may cause connection failures for users behind restrictive NATs.");
-          console.warn("💡 Configure TURN server in .env.local:");
-          console.warn("   NEXT_PUBLIC_TURN_URL=turn:your-server.com:3478");
-          console.warn("   NEXT_PUBLIC_TURN_USERNAME=your-username");
-          console.warn("   NEXT_PUBLIC_TURN_CREDENTIAL=your-credential");
+          console.log("🧭 Using default TURN servers (Metered.ca)");
         }
 
         const peer = new Peer({
