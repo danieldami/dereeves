@@ -80,30 +80,23 @@ export default function CallModal({
           // Multiple STUN servers for reliability
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" },
-          { urls: "stun:stun3.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" },
+          { urls: "stun:openrelay.metered.ca:80" },
           
-          // Free reliable TURN servers from Metered.ca
+          // Free TURN servers from Metered.ca OpenRelay
           {
-            urls: "turn:a.relay.metered.ca:80",
-            username: "87e1849e84f3f78084e475c6",
-            credential: "wPujidqyM0GThsBz",
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
           },
           {
-            urls: "turn:a.relay.metered.ca:80?transport=tcp",
-            username: "87e1849e84f3f78084e475c6",
-            credential: "wPujidqyM0GThsBz",
+            urls: "turn:openrelay.metered.ca:443",
+            username: "openrelayproject",
+            credential: "openrelayproject",
           },
           {
-            urls: "turn:a.relay.metered.ca:443",
-            username: "87e1849e84f3f78084e475c6",
-            credential: "wPujidqyM0GThsBz",
-          },
-          {
-            urls: "turns:a.relay.metered.ca:443?transport=tcp",
-            username: "87e1849e84f3f78084e475c6",
-            credential: "wPujidqyM0GThsBz",
+            urls: "turn:openrelay.metered.ca:443?transport=tcp",
+            username: "openrelayproject",
+            credential: "openrelayproject",
           }
         ];
         
