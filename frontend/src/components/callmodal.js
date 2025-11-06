@@ -141,8 +141,10 @@ export default function CallModal({
           stream: stream,
           config: {
             iceServers,
-            iceTransportPolicy: 'relay', // FORCE relay-only for testing (use 'all' for production)
-            iceCandidatePoolSize: 10
+            iceTransportPolicy: 'all', // Try all connection types
+            iceCandidatePoolSize: 10,
+            bundlePolicy: 'max-bundle',
+            rtcpMuxPolicy: 'require'
           }
         });
 
@@ -447,18 +449,25 @@ export default function CallModal({
           });
         }
 
-        // Failsafe: end the call if connection not active within 30s
+        // Failsafe: end the call if connection not active within 60s (increased for relay connections)
         connectionTimeoutRef.current = setTimeout(() => {
           if (!callActiveRef.current) {
             console.warn('⏰ Connection not established in time - ending call');
             console.warn('⏰ Final ICE state:', iceStateRef.current);
             console.warn('⏰ callActiveRef:', callActiveRef.current);
+            console.warn('⏰ Remote stream received:', remoteStreamReceived);
+            
+            // Don't end if we're in checking state - still negotiating
+            if (iceStateRef.current === 'checking') {
+              console.log('🔄 Still checking connection, giving more time...');
+              return; // Don't end the call yet
+            }
             
             // Provide helpful error message based on state
             let errorMsg = 'Connection failed to establish. Please try again.';
             if (iceStateRef.current === 'failed' || iceStateRef.current === 'disconnected') {
               errorMsg += '\n\nPossible causes:\n• Network/firewall restrictions\n• Both users behind restrictive NAT\n• TURN server needed for connection';
-            } else if (iceStateRef.current === 'checking' || iceStateRef.current === 'new') {
+            } else if (iceStateRef.current === 'new') {
               errorMsg += '\n\nConnection is still trying to establish. Please ensure:\n• Both users have stable internet\n• Firewall allows WebRTC connections';
             }
             
@@ -467,7 +476,7 @@ export default function CallModal({
           } else {
             console.log('✅ Connection timeout passed - call is active');
           }
-        }, 30000);
+        }, 60000);
 
         // Handle incoming signals (including ICE candidates)
         const handleRemoteSignal = ({ signal }) => {
