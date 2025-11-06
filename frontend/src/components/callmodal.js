@@ -80,9 +80,26 @@ export default function CallModal({
           // Multiple STUN servers for reliability
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:openrelay.metered.ca:80" },
+          { urls: "stun:stun2.l.google.com:19302" },
           
-          // Free TURN servers from Metered.ca OpenRelay
+          // Your own TURN server on VPS (most reliable!)
+          {
+            urls: "turn:156.232.88.209:3478",
+            username: "dereeves",
+            credential: "SecureTurnPass2024!",
+          },
+          {
+            urls: "turn:156.232.88.209:3478?transport=tcp",
+            username: "dereeves",
+            credential: "SecureTurnPass2024!",
+          },
+          {
+            urls: "turns:156.232.88.209:5349?transport=tcp",
+            username: "dereeves",
+            credential: "SecureTurnPass2024!",
+          },
+          
+          // Backup: Free TURN servers from Metered.ca
           {
             urls: "turn:openrelay.metered.ca:80",
             username: "openrelayproject",
@@ -90,11 +107,6 @@ export default function CallModal({
           },
           {
             urls: "turn:openrelay.metered.ca:443",
-            username: "openrelayproject",
-            credential: "openrelayproject",
-          },
-          {
-            urls: "turn:openrelay.metered.ca:443?transport=tcp",
             username: "openrelayproject",
             credential: "openrelayproject",
           }
