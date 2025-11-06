@@ -378,26 +378,9 @@ export default function CallModal({
           );
 
           if (isTransient) {
-            console.log("🔌 Transient connection error - waiting for retry/timeout");
-            // Single retry: recreate peer once if not already retried
-            if (!retriedRef.current && peerRef.current && !peerRef.current.destroyed) {
-              retriedRef.current = true;
-              console.log("🔁 Attempting one-time peer retry...");
-              try {
-                peerRef.current.destroy();
-              } catch (_) {}
-              // Recreate after brief tick
-              setTimeout(() => {
-                if (isOpen) {
-                  // trigger effect re-run by closing and reopening logic
-                  // simplest is to call onClose then immediately reopen, but we avoid UI flicker
-                  // Instead, call startCall again by mimicking dependency change
-                  // We rely on setCallStartTime to change state and re-run timer; here we just rebuild peer
-                  // Re-run startCall by toggling a benign state
-                  setCallStatus(prev => prev === 'connecting' ? 'ringing' : 'connecting');
-                }
-              }, 200);
-            }
+            console.log("🔌 Transient connection error - ignoring, will wait for timeout or recovery");
+            console.log("🔌 ICE can recover from 'disconnected' state, giving it time...");
+            // DON'T destroy or retry - let ICE negotiate naturally
             return;
           }
 
@@ -462,9 +445,9 @@ export default function CallModal({
             console.warn('⏰ callActiveRef:', callActiveRef.current);
             console.warn('⏰ Remote stream received:', remoteStreamReceived);
             
-            // Don't end if we're in checking state - still negotiating
-            if (iceStateRef.current === 'checking') {
-              console.log('🔄 Still checking connection, giving more time...');
+            // Don't end if we're in checking or disconnected state - can still recover
+            if (iceStateRef.current === 'checking' || iceStateRef.current === 'disconnected') {
+              console.log('🔄 Connection in progress (state: ' + iceStateRef.current + '), giving more time...');
               return; // Don't end the call yet
             }
             
