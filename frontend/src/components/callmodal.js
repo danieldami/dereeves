@@ -75,12 +75,31 @@ export default function CallModal({
 
         console.log("🔗 Creating peer connection...");
 
-        // Build ICE servers - STUN only for testing same-network calls
+        // Build ICE servers with STUN and TURN (required due to AP isolation on WiFi)
         const iceServers = [
-          // STUN servers only (for same-network testing)
+          // STUN servers
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" }
+          { urls: "stun:stun2.l.google.com:19302" },
+          
+          // Your VPS TURN server (primary)
+          {
+            urls: "turn:156.232.88.209:3478",
+            username: "dereeves",
+            credential: "SecureTurnPass2024!",
+          },
+          {
+            urls: "turn:156.232.88.209:3478?transport=tcp",
+            username: "dereeves",
+            credential: "SecureTurnPass2024!",
+          },
+          
+          // Backup: OpenRelay TURN
+          {
+            urls: "turn:openrelay.metered.ca:80",
+            username: "openrelayproject",
+            credential: "openrelayproject",
+          }
         ];
         
         // Allow override from environment variables if provided
