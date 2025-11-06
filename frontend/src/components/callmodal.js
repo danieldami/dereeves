@@ -144,6 +144,24 @@ export default function CallModal({
         try {
           const pc = peer._pc; // simple-peer underlying RTCPeerConnection
           if (pc) {
+            // Override connection state change to prevent auto-destroy
+            const originalOnConnectionStateChange = pc.onconnectionstatechange;
+            pc.onconnectionstatechange = () => {
+              console.log("🔗 Connection state:", pc.connectionState);
+              
+              // Prevent simple-peer from auto-destroying on failed state
+              if (pc.connectionState === 'failed' && !callActiveRef.current) {
+                console.warn("⚠️ Connection state 'failed' but preventing auto-destroy - giving ICE more time");
+                // Don't call the original handler which would destroy the peer
+                return;
+              }
+              
+              // Call original handler for other states
+              if (originalOnConnectionStateChange) {
+                originalOnConnectionStateChange.call(pc);
+              }
+            };
+            
             pc.oniceconnectionstatechange = () => {
               iceStateRef.current = pc.iceConnectionState;
               console.log("🌐 ICE state:", pc.iceConnectionState);
@@ -165,12 +183,11 @@ export default function CallModal({
                 }
               }
               
-              // Log failures
+              // Log failures but don't auto-destroy
               if (pc.iceConnectionState === "failed") {
-                console.error("❌ ICE connection failed - connection cannot be established");
-                console.log("💡 Tip: This usually means TURN server is needed for NAT traversal");
+                console.error("❌ ICE connection failed - but giving TURN relay more time");
               } else if (pc.iceConnectionState === "disconnected") {
-                console.warn("⚠️ ICE connection disconnected - may reconnect automatically");
+                console.warn("⚠️ ICE connection disconnected - may reconnect via TURN relay");
               }
             };
             
@@ -395,10 +412,12 @@ export default function CallModal({
         peer.on("close", () => {
           console.log("🔴 Peer connection closed");
           console.log("🔴 Call status when closed:", callStatus);
-          // Only set to ended if not already ended
-          if (callStatus !== "ended") {
-            setCallStatus("ended");
-          }
+          console.log("🔴 ICE state when closed:", iceStateRef.current);
+          console.log("🔴 Was call active?", callActiveRef.current);
+          
+          // Don't auto-end - let the user manually end or let timeout handle it
+          console.log("⚠️ Peer closed but keeping call UI open - user can manually end if needed");
+          // Don't set status to "ended" automatically
         });
 
         // If receiving call, signal the peer first, then the peer will generate its own answer signal
