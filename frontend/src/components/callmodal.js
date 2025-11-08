@@ -84,12 +84,12 @@ export default function CallModal({
           
           // Your VPS TURN server (primary)
           {
-            urls: "turn:156.232.88.209:3478",
+            urls: "turn:167.88.39.87:3478",
             username: "dereeves",
             credential: "SecureTurnPass2024!",
           },
           {
-            urls: "turn:156.232.88.209:3478?transport=tcp",
+            urls: "turn:167.88.39.87:3478?transport=tcp",
             username: "dereeves",
             credential: "SecureTurnPass2024!",
           },
