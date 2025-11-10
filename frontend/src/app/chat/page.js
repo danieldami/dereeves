@@ -394,12 +394,23 @@ useEffect(() => {
   };
   socket.onAny(debugHandler);
   
+  // Queue signals that arrive before CallModal is ready
+  const handleSignalForQueue = ({ signal }) => {
+    // Only queue if CallModal is NOT open yet
+    if (!isCallModalOpen && window.signalQueue) {
+      console.log("📥 [USER] Queueing early signal:", signal?.candidate ? "ICE candidate" : signal?.type || "unknown");
+      window.signalQueue.push(signal);
+    }
+  };
+  
+  socket.on("signal", handleSignalForQueue);
   socket.on("incomingCall", handleIncomingCall);
   socket.on("callEnded", handleCallEndedGlobal);
   
   return () => {
     console.log("🧹 Cleaning up incoming call listener");
     socket.offAny(debugHandler);
+    socket.off("signal", handleSignalForQueue);
     socket.off("incomingCall", handleIncomingCall);
     socket.off("callEnded", handleCallEndedGlobal);
   };
@@ -557,6 +568,12 @@ useEffect(() => {
   // Store the incoming signal for the CallModal to use
   window.incomingCallSignal = incomingCall.signal;
   window.incomingCallFrom = incomingCall.from;
+  
+  // Initialize signal queue for early-arriving candidates
+  if (!window.signalQueue) {
+    window.signalQueue = [];
+  }
+  console.log("📦 [USER] Signal queue initialized, current queue length:", window.signalQueue.length);
 };
 
 const handleRejectCall = () => {

@@ -222,6 +222,17 @@ useEffect(() => {
         
         socket.onAny(anyEventHandler);
 
+        // Queue signals that arrive before CallModal is ready
+        const handleSignalForQueue = ({ signal }) => {
+            // Only queue if CallModal is NOT open yet
+            if (!isCallModalOpen && window.signalQueue) {
+                console.log("📥 [ADMIN] Queueing early signal:", signal?.candidate ? "ICE candidate" : signal?.type || "unknown");
+                window.signalQueue.push(signal);
+            }
+        };
+        
+        socket.on("signal", handleSignalForQueue);
+
         const handleUserOnlineStatus = ({ userId, isOnline, lastSeen }) => {
             console.log("📡 [ADMIN] ===== userOnlineStatus event =====");
             console.log("📡 [ADMIN] userId:", userId);
@@ -285,6 +296,7 @@ useEffect(() => {
         return () => {
             console.log("🧹 [ADMIN] Cleaning up socket listeners...");
             socket.offAny(anyEventHandler);
+            socket.off("signal", handleSignalForQueue);
             socket.off("userOnlineStatus", handleUserOnlineStatus);
             socket.off("online-users", handleOnlineUsers);
             socket.off("user-online", handleUserOnline);
@@ -556,6 +568,12 @@ useEffect(() => {
         // Store signal globally for CallModal to access
         window.incomingCallSignal = incomingCall.signal;
         window.incomingCallFrom = incomingCall.from;
+        
+        // Initialize signal queue for early-arriving candidates
+        if (!window.signalQueue) {
+            window.signalQueue = [];
+        }
+        console.log("📦 [ADMIN] Signal queue initialized, current queue length:", window.signalQueue.length);
         
         // Close incoming modal and open call modal
         setShowIncomingModal(false);

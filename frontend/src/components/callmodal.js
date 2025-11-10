@@ -470,7 +470,29 @@ export default function CallModal({
                 peer.signal(incomingSignal);
                 console.log("✅ Incoming signal processed successfully - peer will now generate answer signal");
                 
-                // Process any queued candidates after setting remote description
+                // Process any queued candidates from window.signalQueue
+                if (window.signalQueue && window.signalQueue.length > 0) {
+                  console.log(`📦 Processing ${window.signalQueue.length} early-arriving signals from queue...`);
+                  window.signalQueue.forEach(queuedSignal => {
+                    try {
+                      if (queuedSignal.candidate) {
+                        peerRef.current.signal(queuedSignal);
+                        console.log("✅ Applied queued ICE candidate");
+                      } else if (queuedSignal.type === 'answer' || queuedSignal.type === 'offer') {
+                        // This shouldn't happen but handle it just in case
+                        console.warn("⚠️ Found SDP in queue, skipping (already processed)");
+                      } else {
+                        peerRef.current.signal(queuedSignal);
+                        console.log("✅ Applied queued signal");
+                      }
+                    } catch (err) {
+                      console.error("❌ Failed to apply queued signal:", err);
+                    }
+                  });
+                  window.signalQueue = []; // Clear the global queue
+                }
+                
+                // Process any queued candidates from the local candidateQueue
                 if (candidateQueue.length > 0) {
                   console.log(`📦 Processing ${candidateQueue.length} queued candidates from incoming call...`);
                   candidateQueue.forEach(candidate => {
