@@ -26,6 +26,7 @@ export default function CallModal({
   const retriedRef = useRef(false);
   const remoteMediaRef = useRef(null);
   const iceStateRef = useRef('new');
+  const iceStateTimestamp = useRef(Date.now()); // Track when ICE state changed
   const connectionTimeoutRef = useRef(null);
   const callActiveRef = useRef(false);
   const isEndingCallRef = useRef(false);
@@ -46,6 +47,10 @@ export default function CallModal({
     console.log("📞 incomingSignal:", incomingSignal ? "Present" : "Missing");
 
     const startCall = async () => {
+      // ICE candidate queue - must be declared at top of function scope
+      const candidateQueue = [];
+      let remoteDescriptionSet = false;
+      
       try {
         // Check if getUserMedia is available
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -163,10 +168,18 @@ export default function CallModal({
             };
             
             pc.oniceconnectionstatechange = () => {
-              iceStateRef.current = pc.iceConnectionState;
-              console.log("🌐 ICE state:", pc.iceConnectionState);
+              const previousState = iceStateRef.current;
+              const currentState = pc.iceConnectionState;
+              const stateTime = Date.now();
+              const timeSinceLastChange = stateTime - iceStateTimestamp.current;
               
-              if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+              // Update state tracking
+              iceStateRef.current = currentState;
+              iceStateTimestamp.current = stateTime;
+              
+              console.log(`🌐 ICE state: ${previousState} → ${currentState} (after ${timeSinceLastChange}ms)`);
+              
+              if (currentState === "connected" || currentState === "completed") {
                 console.log("✅ ICE connection established successfully!");
                 callActiveRef.current = true;
                 setCallStatus("active");
@@ -182,12 +195,35 @@ export default function CallModal({
                   setCallStartTime(Date.now());
                 }
               }
-              
-              // Log failures but don't auto-destroy
-              if (pc.iceConnectionState === "failed") {
-                console.error("❌ ICE connection failed - but giving TURN relay more time");
-              } else if (pc.iceConnectionState === "disconnected") {
-                console.warn("⚠️ ICE connection disconnected - may reconnect via TURN relay");
+              else if (currentState === "checking") {
+                console.log("🔍 ICE checking - gathering and testing candidates...");
+                setCallStatus("connecting");
+              }
+              else if (currentState === "disconnected") {
+                console.warn("⚠️ ICE disconnected - WebRTC will attempt to reconnect via TURN relay");
+                console.warn(`⚠️ Time in previous state (${previousState}): ${timeSinceLastChange}ms`);
+                
+                // If we were connected before, this is a temporary disconnection
+                if (previousState === "connected" || previousState === "completed") {
+                  console.log("🔄 Temporary disconnection from active call - waiting for reconnection...");
+                  // Don't change status, keep showing as active
+                } else {
+                  setCallStatus("connecting");
+                }
+              }
+              else if (currentState === "failed") {
+                console.error("❌ ICE connection failed after all attempts");
+                console.error(`❌ Time in disconnected state: ${timeSinceLastChange}ms`);
+                console.error("❌ Possible causes:");
+                console.error("   • Both users behind symmetric NAT");
+                console.error("   • TURN server unreachable");
+                console.error("   • Firewall blocking WebRTC ports");
+                
+                // Don't auto-end, let timeout handler deal with it
+                // This gives TURN relay maximum time to work
+              }
+              else if (currentState === "closed") {
+                console.log("🔴 ICE connection closed");
               }
             };
             
@@ -456,40 +492,68 @@ export default function CallModal({
           });
         }
 
-        // Failsafe: end the call if connection not active within 60s (increased for relay connections)
-        connectionTimeoutRef.current = setTimeout(() => {
-          if (!callActiveRef.current) {
-            console.warn('⏰ Connection not established in time - ending call');
-            console.warn('⏰ Final ICE state:', iceStateRef.current);
-            console.warn('⏰ callActiveRef:', callActiveRef.current);
-            console.warn('⏰ Remote stream received:', remoteStreamReceived);
-            
-            // Don't end if we're in checking or disconnected state - can still recover
-            if (iceStateRef.current === 'checking' || iceStateRef.current === 'disconnected') {
-              console.log('🔄 Connection in progress (state: ' + iceStateRef.current + '), giving more time...');
-              return; // Don't end the call yet
-            }
-            
-            // Provide helpful error message based on state
-            let errorMsg = 'Connection failed to establish. Please try again.';
-            if (iceStateRef.current === 'failed' || iceStateRef.current === 'disconnected') {
-              errorMsg += '\n\nPossible causes:\n• Network/firewall restrictions\n• Both users behind restrictive NAT\n• TURN server needed for connection';
-            } else if (iceStateRef.current === 'new') {
-              errorMsg += '\n\nConnection is still trying to establish. Please ensure:\n• Both users have stable internet\n• Firewall allows WebRTC connections';
-            }
-            
-            alert(errorMsg);
-            endCall();
-          } else {
+        // Failsafe: Monitor connection progress with smart timeout
+        const checkConnectionProgress = () => {
+          const elapsed = Date.now() - iceStateTimestamp.current;
+          const currentState = iceStateRef.current;
+          
+          console.log(`⏰ Connection check: state=${currentState}, time_in_state=${elapsed}ms, active=${callActiveRef.current}`);
+          
+          if (callActiveRef.current) {
             console.log('✅ Connection timeout passed - call is active');
+            return; // Call is active, no need to monitor
           }
-        }, 60000);
+          
+          // If ICE is actively negotiating (checking state), give it more time
+          if (currentState === 'checking') {
+            if (elapsed < 90000) { // 90 seconds max in checking state
+              console.log(`🔄 ICE still checking (${Math.floor(elapsed/1000)}s), extending timeout...`);
+              connectionTimeoutRef.current = setTimeout(checkConnectionProgress, 15000);
+              return;
+            } else {
+              console.error('⏰ ICE stuck in checking state for too long');
+            }
+          }
+          
+          // If disconnected but was making progress, give one more chance
+          if (currentState === 'disconnected' && elapsed < 30000) {
+            console.log(`🔄 Disconnected but recent (${Math.floor(elapsed/1000)}s), waiting for recovery...`);
+            connectionTimeoutRef.current = setTimeout(checkConnectionProgress, 10000);
+            return;
+          }
+          
+          // Connection failed - provide detailed error
+          console.error('❌ Connection timeout - ending call');
+          console.error('❌ Final state:', currentState);
+          console.error('❌ Time in final state:', elapsed, 'ms');
+          console.error('❌ Remote stream received:', remoteStreamReceived);
+          
+          let errorMsg = 'Connection failed to establish.';
+          
+          if (currentState === 'failed') {
+            errorMsg = 'Connection failed. This usually means:\n\n' +
+                       '• Your network or firewall is blocking WebRTC\n' +
+                       '• The TURN relay server is unreachable\n' +
+                       '• Both users are behind very restrictive NAT\n\n' +
+                       'Please check your network settings and try again.';
+          } else if (currentState === 'new' || currentState === 'checking') {
+            errorMsg = 'Connection timed out while trying to connect.\n\n' +
+                       'Please check:\n' +
+                       '• Both users have stable internet connection\n' +
+                       '• Firewall/antivirus is not blocking the application';
+          } else if (currentState === 'disconnected') {
+            errorMsg = 'Connection lost and could not be re-established.\n\n' +
+                       'Please try calling again.';
+          }
+          
+          alert(errorMsg);
+          endCall();
+        };
+        
+        // Start with initial 60-second timeout
+        connectionTimeoutRef.current = setTimeout(checkConnectionProgress, 60000);
 
         // Handle incoming signals (including ICE candidates)
-        // Queue for candidates received before remote description is set
-        const candidateQueue = [];
-        let remoteDescriptionSet = false;
-
         const handleRemoteSignal = ({ signal }) => {
           if (!signal) {
             console.warn("⚠️ Signal payload missing");
@@ -635,6 +699,9 @@ export default function CallModal({
           console.log("🔴 Event data:", data);
           console.log("🔴 Current user:", currentUser._id);
           console.log("🔴 Other user:", otherUser._id);
+          console.log("🔴 Call status:", callStatus);
+          console.log("🔴 ICE state:", iceStateRef.current);
+          console.log("🔴 Call was active:", callActiveRef.current);
           
           isEndingCallRef.current = true;
           setCallStatus("ended");
@@ -643,22 +710,51 @@ export default function CallModal({
           if (connectionTimeoutRef.current) {
             clearTimeout(connectionTimeoutRef.current);
             connectionTimeoutRef.current = null;
+            console.log("✅ Connection timeout cleared");
           }
           
-          // Clean up immediately when call is ended by other party
+          // Clean up media streams
           if (streamRef.current) {
-            console.log("🔴 Stopping local stream tracks");
-            streamRef.current.getTracks().forEach(track => track.stop());
+            console.log("🧹 Stopping local media tracks");
+            streamRef.current.getTracks().forEach(track => {
+              track.stop();
+              console.log("  Stopped:", track.kind, "track");
+            });
             streamRef.current = null;
           }
-          if (peerRef.current && !peerRef.current.destroyed) {
-            console.log("🔴 Destroying peer connection");
-            peerRef.current.destroy();
+          
+          // Clean up remote media
+          if (remoteMediaRef.current) {
+            try {
+              remoteMediaRef.current.getTracks().forEach(t => t.stop());
+              remoteMediaRef.current = null;
+            } catch (err) {
+              console.warn("⚠️ Error stopping remote tracks:", err);
+            }
+          }
+          
+          // Destroy peer connection
+          if (peerRef.current) {
+            if (!peerRef.current.destroyed) {
+              console.log("🧹 Destroying peer connection");
+              try {
+                peerRef.current.destroy();
+              } catch (err) {
+                console.warn("⚠️ Error destroying peer:", err);
+              }
+            }
             peerRef.current = null;
           }
           
-          console.log("🔴 Closing modal in 500ms");
-          // Close modal without emitting endCall again
+          // Reset state
+          setCallDuration(0);
+          setCallStartTime(null);
+          setRemoteStreamReceived(false);
+          
+          console.log("✅ Cleanup complete, closing modal in 500ms");
+          console.log("🔴 ==========================================");
+          
+          // Close modal without emitting endCall again (other user already knows)
           setTimeout(() => {
             onClose();
           }, 500);
@@ -759,35 +855,72 @@ export default function CallModal({
       return;
     }
     
-    console.log("📴 Ending call...");
-    console.log("📴 From:", currentUser._id);
-    console.log("📴 To:", otherUser._id);
+    console.log("📴 ========== ENDING CALL ==========");
+    console.log("📴 Initiated by:", currentUser._id);
+    console.log("📴 Notifying:", otherUser._id);
+    console.log("📴 Call status:", callStatus);
+    console.log("📴 ICE state:", iceStateRef.current);
+    console.log("📴 Call duration:", callDuration, "seconds");
     isEndingCallRef.current = true;
     
     // Clear connection timeout if still active
     if (connectionTimeoutRef.current) {
       clearTimeout(connectionTimeoutRef.current);
       connectionTimeoutRef.current = null;
+      console.log("✅ Connection timeout cleared");
     }
     
     // Emit endCall socket event with both to and from
-    socket.emit("endCall", { 
-      to: otherUser._id,
-      from: currentUser._id 
-    });
-    console.log("✅ endCall event emitted to backend");
+    try {
+      socket.emit("endCall", { 
+        to: otherUser._id,
+        from: currentUser._id 
+      });
+      console.log("✅ endCall event emitted to backend");
+    } catch (err) {
+      console.error("❌ Failed to emit endCall event:", err);
+    }
     
+    // Clean up media streams
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      console.log("🧹 Stopping local media tracks");
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log("  Stopped:", track.kind, "track");
+      });
       streamRef.current = null;
     }
-    if (peerRef.current && !peerRef.current.destroyed) {
-      peerRef.current.destroy();
+    
+    // Clean up remote media
+    if (remoteMediaRef.current) {
+      try {
+        remoteMediaRef.current.getTracks().forEach(t => t.stop());
+        remoteMediaRef.current = null;
+      } catch (err) {
+        console.warn("⚠️ Error stopping remote tracks:", err);
+      }
+    }
+    
+    // Destroy peer connection
+    if (peerRef.current) {
+      if (!peerRef.current.destroyed) {
+        console.log("🧹 Destroying peer connection");
+        try {
+          peerRef.current.destroy();
+        } catch (err) {
+          console.warn("⚠️ Error destroying peer:", err);
+        }
+      }
       peerRef.current = null;
     }
     
+    // Reset state
     setCallDuration(0);
     setCallStartTime(null);
+    setRemoteStreamReceived(false);
+    
+    console.log("✅ Call cleanup complete, closing modal");
+    console.log("📴 ==================================");
     onClose();
   };
 
