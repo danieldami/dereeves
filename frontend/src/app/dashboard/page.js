@@ -241,10 +241,10 @@ export default function DashboardPage() {
                 {/* Donation Notice */}
                 <div className="bg-gray-50 border-2 border-gray-200 rounded-xl p-4 sm:p-6 mt-8">
                   <p className="text-sm sm:text-base text-gray-700 font-medium mb-2">
-                    💐 Support the Family
+                    💐 Support the Foundation
                   </p>
                   <p className="text-xs sm:text-sm text-gray-600">
-                    To donate to the family or send condolences, please contact management using the chat options below.
+                    To donate to the foundation or send condolences, please contact management using the chat options below.
                   </p>
                 </div>
               </div>

@@ -160,7 +160,7 @@ const Hero = () => {
             href="/donate" 
             className="w-full sm:w-auto px-8 py-3 border-2 border-white text-white rounded-full text-base font-semibold hover:bg-white hover:text-gray-900 transition duration-300 shadow-2xl backdrop-blur-sm bg-white/10"
           >
-            💐 Donate to Family
+            💐 Donate to Foundation
           </a>
           
           <a 
