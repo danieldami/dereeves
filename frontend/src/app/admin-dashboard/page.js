@@ -224,11 +224,12 @@ useEffect(() => {
 
         // Queue signals that arrive before CallModal is ready
         const handleSignalForQueue = ({ signal }) => {
-            // Only queue if CallModal is NOT open yet
-            if (!isCallModalOpen && window.signalQueue) {
+            // Only queue if we have an incoming call but CallModal hasn't opened yet
+            if (!isCallModalOpen && window.signalQueue && Array.isArray(window.signalQueue)) {
                 console.log("📥 [ADMIN] Queueing early signal:", signal?.candidate ? "ICE candidate" : signal?.type || "unknown");
                 window.signalQueue.push(signal);
             }
+            // If CallModal is open, let CallModal's own listener handle it (don't interfere)
         };
         
         socket.on("signal", handleSignalForQueue);
@@ -333,6 +334,10 @@ useEffect(() => {
             
             const caller = users.find(u => u._id === from) || { _id: from, name, email: "" };
             console.log("📞 [ADMIN] Caller info:", caller);
+            
+            // Initialize signal queue immediately when call arrives
+            window.signalQueue = [];
+            console.log("📦 [ADMIN] Signal queue initialized for incoming call");
             
             // Store the incoming call data and show the incoming call modal
             const callData = {
@@ -544,6 +549,11 @@ useEffect(() => {
         }
         
         console.log("📞 [ADMIN] Starting call to user:", selectedUser.name);
+        
+        // Initialize signal queue for outgoing call
+        window.signalQueue = [];
+        console.log("📦 [ADMIN] Signal queue initialized for outgoing call");
+        
         setCallTargetUser(selectedUser);
         setCallType(type); // Fixed: should be the call type (audio/video), not "outgoing"
         // Clear any previous incoming call data
@@ -564,16 +574,11 @@ useEffect(() => {
     const handleAcceptCall = () => {
         if (!incomingCall) return;
         console.log("✅ [ADMIN] Accepting call from:", incomingCall.from);
+        console.log("📦 [ADMIN] Current signal queue length:", window.signalQueue?.length || 0);
         
         // Store signal globally for CallModal to access
         window.incomingCallSignal = incomingCall.signal;
         window.incomingCallFrom = incomingCall.from;
-        
-        // Initialize signal queue for early-arriving candidates
-        if (!window.signalQueue) {
-            window.signalQueue = [];
-        }
-        console.log("📦 [ADMIN] Signal queue initialized, current queue length:", window.signalQueue.length);
         
         // Close incoming modal and open call modal
         setShowIncomingModal(false);

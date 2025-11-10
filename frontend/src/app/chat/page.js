@@ -345,6 +345,10 @@ useEffect(() => {
 
     console.log("📞 Caller info:", callerInfo);
 
+    // Initialize signal queue immediately when call arrives
+    window.signalQueue = [];
+    console.log("📦 [USER] Signal queue initialized for incoming call");
+
     // Store the call signal and show the modal
     const callData = { signal, from, name, callType, callId, caller: callerInfo };
     console.log("📞 Setting incoming call data:", callData);
@@ -396,11 +400,12 @@ useEffect(() => {
   
   // Queue signals that arrive before CallModal is ready
   const handleSignalForQueue = ({ signal }) => {
-    // Only queue if CallModal is NOT open yet
-    if (!isCallModalOpen && window.signalQueue) {
+    // Only queue if we have a call in progress but CallModal hasn't opened yet
+    if (!isCallModalOpen && window.signalQueue && Array.isArray(window.signalQueue)) {
       console.log("📥 [USER] Queueing early signal:", signal?.candidate ? "ICE candidate" : signal?.type || "unknown");
       window.signalQueue.push(signal);
     }
+    // If CallModal is open, let CallModal's own listener handle it (don't interfere)
   };
   
   socket.on("signal", handleSignalForQueue);
@@ -540,6 +545,11 @@ useEffect(() => {
     
     console.log("✅ Admin is online - starting call");
     console.log("📞 Starting call to admin - type:", type);
+    
+    // Initialize signal queue for outgoing call
+    window.signalQueue = [];
+    console.log("📦 [USER] Signal queue initialized for outgoing call");
+    
     setCallType(type); // Store the call type (audio or video)
     setCallDirection("outgoing"); // Set call direction
     setIsCallModalOpen(true);
@@ -558,6 +568,7 @@ useEffect(() => {
   if (!incomingCall) return;
   console.log("✅ Accepting call from:", incomingCall.from);
   console.log("✅ Incoming call signal:", incomingCall.signal);
+  console.log("📦 [USER] Current signal queue length:", window.signalQueue?.length || 0);
 
   // Store the signal and open the CallModal - it will emit the answerCall with signal
   setShowIncomingModal(false);
@@ -568,12 +579,6 @@ useEffect(() => {
   // Store the incoming signal for the CallModal to use
   window.incomingCallSignal = incomingCall.signal;
   window.incomingCallFrom = incomingCall.from;
-  
-  // Initialize signal queue for early-arriving candidates
-  if (!window.signalQueue) {
-    window.signalQueue = [];
-  }
-  console.log("📦 [USER] Signal queue initialized, current queue length:", window.signalQueue.length);
 };
 
 const handleRejectCall = () => {
