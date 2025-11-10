@@ -379,10 +379,25 @@ io.on("connection", (socket) => {
 
   // Signal relay (for ICE candidates and other WebRTC signals)
   socket.on("signal", ({ signal, to }) => {
+    console.log("📡 ========== SIGNAL RELAY ==========");
+    console.log("📡 From socket:", socket.id);
+    console.log("📡 To user:", to);
+    console.log("📡 Signal type:", signal?.type || (signal?.candidate ? "ICE candidate" : "unknown"));
+    console.log("📡 Signal:", signal);
+    
     const receiverData = onlineUsers.get(to);
+    console.log("📡 Receiver data:", receiverData);
+    
     if (receiverData && receiverData.socketId) {
+      console.log("✅ Relaying signal to socket:", receiverData.socketId);
       io.to(receiverData.socketId).emit("signal", { signal });
+      console.log("✅ Signal relayed successfully");
+    } else {
+      console.error("❌ Cannot relay signal - receiver not found or offline");
+      console.error("❌ Receiver user ID:", to);
+      console.error("❌ Online users:", Array.from(onlineUsers.keys()));
     }
+    console.log("📡 ==================================");
   });
 
   // ==================== END WebRTC SIGNALING ====================
