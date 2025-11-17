@@ -16,7 +16,7 @@ export default function IncomingCallModal({ caller, callType, onAccept, onReject
         </h2>
         
         <p className="text-gray-600 mb-2">{caller.name}</p>
-        <p className="text-sm text-gray-500 mb-6">{caller.email}</p>
+        
 
         <div className="flex gap-4">
           <button
