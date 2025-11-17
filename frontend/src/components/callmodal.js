@@ -974,91 +974,171 @@ export default function CallModal({
     }
   };
 
+  const isVideoCall = callType === "video";
+  const userLabel = otherUser?.name || otherUser?.email || "Unknown contact";
+  const userSubLabel =
+    otherUser?.email && otherUser?.email !== otherUser?.name
+      ? otherUser.email
+      : otherUser?._id || "";
+
+  const getInitials = (value = "") => {
+    const cleaned = value.trim();
+    if (!cleaned) return "…";
+    const parts = cleaned.split(" ").filter(Boolean).slice(0, 2);
+    return parts.map((part) => part.charAt(0).toUpperCase()).join("");
+  };
+
+  const callStatusTextMap = {
+    ringing: "Calling…",
+    connecting: "Connecting…",
+    active: "Connected",
+    ended: "Call Ended",
+  };
+
+  const callStatusText = callStatusTextMap[callStatus] || callStatus;
+  const statusSubtext =
+    callStatus === "active" && callDuration > 0
+      ? formatDuration(callDuration)
+      : callStatus === "ringing"
+        ? isInitiator
+          ? "Waiting for the other person"
+          : "Incoming call"
+        : callStatus === "connecting"
+          ? "Securing connection…"
+          : "";
+
+  const callBannerLabel =
+    callStatus === "active"
+      ? "On Call"
+      : callStatus === "ended"
+        ? "Call Ended"
+        : isInitiator
+          ? "Calling"
+          : "Incoming Call";
+
+  const technicalStatus = `Remote stream: ${
+    remoteStreamReceived ? "Yes" : "No"
+  } • ICE: ${iceStateRef.current}`;
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-lg p-6 max-w-5xl w-full mx-4">
-        <div className="text-center mb-4">
-          <h2 className="text-2xl font-bold text-white">
-            {callStatus === "ringing" && "📞 Calling..."}
-            {callStatus === "connecting" && "🔄 Connecting..."}
-            {callStatus === "active" && `✅ In call with ${otherUser.name}`}
-            {callStatus === "ended" && "🔴 Call Ended"}
-          </h2>
-          <p className="text-gray-400">{otherUser.email || otherUser.name}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Remote stream: {remoteStreamReceived ? <span className="text-green-400">Yes</span> : <span className="text-red-400">No</span>} · ICE: <span className="text-blue-300">{iceStateRef.current}</span>
-          </p>
-          {callStatus === "active" && callDuration > 0 && (
-            <p className="text-green-400 font-mono text-lg">
-              {formatDuration(callDuration)}
-            </p>
-          )}
-        </div>
+    <div className="fixed inset-0 z-50 text-white">
+      <div className="absolute inset-0 overflow-hidden bg-black">
+        <video
+          ref={otherVideo}
+          autoPlay
+          playsInline
+          className={`${
+            isVideoCall
+              ? "absolute inset-0 w-full h-full object-cover opacity-90"
+              : "absolute w-[1px] h-[1px] opacity-0"
+          } transition-opacity duration-500`}
+        />
+        <div
+          className={`absolute inset-0 ${
+            isVideoCall
+              ? "bg-gradient-to-b from-black/30 via-black/70 to-black/90"
+              : "bg-gradient-to-b from-slate-900 via-black to-slate-950"
+          }`}
+        />
+        {!isVideoCall && (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_60%)]" />
+        )}
+      </div>
 
-        <div className="relative bg-black rounded-lg overflow-hidden mb-4" style={{ height: "500px" }}>
-          <video
-            ref={otherVideo}
-            autoPlay
-            playsInline
-            className="w-full h-full object-cover"
-          />
-
-          {callType === "video" && (
-            <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-white shadow-lg">
-              <video
-                ref={myVideo}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-
-          {callType === "audio" && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="text-8xl mb-4">🎤</div>
-                <p className="text-2xl font-semibold">Audio Call</p>
-                <p className="text-lg text-gray-400 mt-2">{callStatus}</p>
+      <div className="relative z-10 flex flex-col h-full max-w-2xl mx-auto px-6 py-10">
+        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+          {!isVideoCall && (
+            <div className="relative mb-4">
+              <div className="absolute inset-0 rounded-full bg-white/10 blur-3xl opacity-20 animate-ping" />
+              <div className="w-32 h-32 rounded-full border border-white/20 bg-white/5 flex items-center justify-center text-4xl font-semibold">
+                {getInitials(userLabel)}
               </div>
             </div>
           )}
-        </div>
 
-        <div className="flex items-center justify-center gap-6">
-          <button
-            onClick={toggleMute}
-            className={`p-5 rounded-full transition-all transform hover:scale-110 ${
-              isMuted ? "bg-red-500 hover:bg-red-600" : "bg-gray-700 hover:bg-gray-600"
-            } text-white text-3xl shadow-lg`}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? "🔇" : "🎤"}
-          </button>
-
-          {callType === "video" && (
-            <button
-              onClick={toggleVideo}
-              className={`p-5 rounded-full transition-all transform hover:scale-110 ${
-                isVideoOff ? "bg-red-500 hover:bg-red-600" : "bg-gray-700 hover:bg-gray-600"
-              } text-white text-3xl shadow-lg`}
-              title={isVideoOff ? "Turn on video" : "Turn off video"}
-            >
-              {isVideoOff ? "📹" : "📷"}
-            </button>
+          <p className="text-xs tracking-[0.4em] uppercase text-white/60">
+            {callBannerLabel}
+          </p>
+          <h2 className="text-3xl font-semibold">{userLabel}</h2>
+          {userSubLabel && (
+            <p className="text-base text-white/70">{userSubLabel}</p>
+          )}
+          <p className="text-xl font-medium text-white/90">{callStatusText}</p>
+          {statusSubtext && (
+            <p className="text-2xl font-mono text-white/90">{statusSubtext}</p>
           )}
 
-          <button
-            onClick={endCall}
-            className="p-5 px-10 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg shadow-lg transform hover:scale-110 transition-all"
-          >
-            End Call
-          </button>
+          <div className="mt-6 text-xs uppercase tracking-widest text-white/50">
+            {remoteStreamReceived ? "Remote media detected" : "Waiting for media"}
+          </div>
+          <div className="text-xs text-white/40 font-mono">{technicalStatus}</div>
+        </div>
+
+        <div className="pb-4">
+          <div className="flex items-center justify-center gap-6 flex-wrap">
+            <div className="flex flex-col items-center gap-2">
+              <button
+                onClick={toggleMute}
+                className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-lg shadow-black/50 border border-white/10 transition-all ${
+                  isMuted
+                    ? "bg-red-500/80 hover:bg-red-500"
+                    : "bg-white/10 hover:bg-white/20"
+                }`}
+                title={isMuted ? "Unmute" : "Mute"}
+              >
+                {isMuted ? "🔇" : "🎙️"}
+              </button>
+              <span className="text-xs text-white/70">
+                {isMuted ? "Muted" : "Mute"}
+              </span>
+            </div>
+
+            {isVideoCall && (
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={toggleVideo}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-lg shadow-black/50 border border-white/10 transition-all ${
+                    isVideoOff
+                      ? "bg-red-500/80 hover:bg-red-500"
+                      : "bg-white/10 hover:bg-white/20"
+                  }`}
+                  title={isVideoOff ? "Turn on video" : "Turn off video"}
+                >
+                  {isVideoOff ? "📷" : "🎥"}
+                </button>
+                <span className="text-xs text-white/70">
+                  {isVideoOff ? "Video Off" : "Video On"}
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-col items-center gap-2">
+              <button
+                onClick={endCall}
+                className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 text-white text-3xl font-bold shadow-xl shadow-red-900/60 transition-transform hover:scale-105"
+                title="End call"
+              >
+                ✕
+              </button>
+              <span className="text-xs text-white/70">End</span>
+            </div>
+          </div>
         </div>
       </div>
+
+      {isVideoCall && (
+        <div className="absolute top-8 right-8 z-20 w-28 sm:w-36 aspect-[3/4] rounded-2xl border border-white/20 overflow-hidden shadow-2xl bg-black/40 backdrop-blur">
+          <video
+            ref={myVideo}
+            autoPlay
+            muted
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
     </div>
   );
 }
