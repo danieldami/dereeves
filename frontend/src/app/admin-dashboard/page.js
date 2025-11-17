@@ -26,6 +26,7 @@ export default function AdminDashboard() {
     const [showIncomingModal, setShowIncomingModal] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [filePreview, setFilePreview] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
@@ -439,6 +440,7 @@ useEffect(() => {
         if (!admin) return;
         setLoading(true);
         setSelectedUser(user);
+        setIsSidebarOpen(false);
         
         try {
             const res = await api.get(`/messages/${user._id}`);
@@ -605,7 +607,23 @@ useEffect(() => {
     }
 
     return (
-        <div className="flex h-screen bg-gray-50">
+        <div className="relative h-screen bg-gray-50">
+            <button
+                className="md:hidden fixed top-4 left-4 z-50 bg-white/90 border border-gray-200 rounded-full p-3 shadow-lg text-gray-800"
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                aria-label="Toggle menu"
+            >
+                {isSidebarOpen ? "✕" : "☰"}
+            </button>
+
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/40 z-30 md:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            <div className="flex h-full">
             {/* Incoming Call Modal */}
             {showIncomingModal && incomingCall && (
                 <IncomingCallModal
@@ -633,7 +651,11 @@ useEffect(() => {
             )}
 
             {/* Sidebar */}
-            <div className="w-80 bg-white border-r shadow-sm overflow-y-auto">
+            <div
+                className={`fixed inset-y-0 left-0 z-40 w-72 md:w-80 bg-white border-r shadow-sm overflow-y-auto transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
+                    isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+                }`}
+            >
                 <div className="p-4 border-b bg-blue-600 text-white">
                     <div className="flex items-center justify-between">
                         <div>
@@ -944,6 +966,7 @@ useEffect(() => {
                         </div>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );
