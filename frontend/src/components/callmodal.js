@@ -976,10 +976,6 @@ export default function CallModal({
 
   const isVideoCall = callType === "video";
   const userLabel = otherUser?.name || otherUser?.email || "Unknown contact";
-  const userSubLabel =
-    otherUser?.email && otherUser?.email !== otherUser?.name
-      ? otherUser.email
-      : otherUser?._id || "";
 
   const getInitials = (value = "") => {
     const cleaned = value.trim();
@@ -987,38 +983,6 @@ export default function CallModal({
     const parts = cleaned.split(" ").filter(Boolean).slice(0, 2);
     return parts.map((part) => part.charAt(0).toUpperCase()).join("");
   };
-
-  const callStatusTextMap = {
-    ringing: "Calling…",
-    connecting: "Connecting…",
-    active: "Connected",
-    ended: "Call Ended",
-  };
-
-  const callStatusText = callStatusTextMap[callStatus] || callStatus;
-  const statusSubtext =
-    callStatus === "active" && callDuration > 0
-      ? formatDuration(callDuration)
-      : callStatus === "ringing"
-        ? isInitiator
-          ? "Waiting for the other person"
-          : "Incoming call"
-        : callStatus === "connecting"
-          ? "Securing connection…"
-          : "";
-
-  const callBannerLabel =
-    callStatus === "active"
-      ? "On Call"
-      : callStatus === "ended"
-        ? "Call Ended"
-        : isInitiator
-          ? "Calling"
-          : "Incoming Call";
-
-  const technicalStatus = `Remote stream: ${
-    remoteStreamReceived ? "Yes" : "No"
-  } • ICE: ${iceStateRef.current}`;
 
   if (!isOpen) return null;
 
@@ -1058,22 +1022,10 @@ export default function CallModal({
             </div>
           )}
 
-          <p className="text-xs tracking-[0.4em] uppercase text-white/60">
-            {callBannerLabel}
-          </p>
           <h2 className="text-3xl font-semibold">{userLabel}</h2>
-          {userSubLabel && (
-            <p className="text-base text-white/70">{userSubLabel}</p>
+          {callStatus === "active" && callDuration > 0 && (
+            <p className="text-2xl font-mono text-white/90">{formatDuration(callDuration)}</p>
           )}
-          <p className="text-xl font-medium text-white/90">{callStatusText}</p>
-          {statusSubtext && (
-            <p className="text-2xl font-mono text-white/90">{statusSubtext}</p>
-          )}
-
-          <div className="mt-6 text-xs uppercase tracking-widest text-white/50">
-            {remoteStreamReceived ? "Remote media detected" : "Waiting for media"}
-          </div>
-          <div className="text-xs text-white/40 font-mono">{technicalStatus}</div>
         </div>
 
         <div className="pb-4">
