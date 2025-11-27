@@ -2,6 +2,8 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { sendVerificationEmail } from "../utils/emailService.js";
+import crypto from "crypto";
 
 
 
@@ -29,20 +31,42 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Save the user directly — model will hash automatically
+    // Create new user — model will hash password automatically
     const newUser = new User({ name, email, password });
-    await newUser.save();
+    
+    // Generate email verification token
+    const verificationToken = newUser.getEmailVerificationToken();
+    await newUser.save({ validateBeforeSave: false });
 
-    console.log(`✅ New user registered: ${email}`);
-    res.status(201).json({ 
-      message: "User registered successfully",
-      user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role
-      }
-    });
+    try {
+      // Send verification email
+      await sendVerificationEmail(email, name, verificationToken);
+      
+      console.log(`✅ New user registered: ${email} - Verification email sent`);
+      res.status(201).json({ 
+        message: "Registration successful! Please check your email to verify your account.",
+        user: {
+          id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        }
+      });
+    } catch (emailError) {
+      // If email fails, still save user but log the error
+      console.error("❌ Failed to send verification email:", emailError);
+      // Optionally, you could delete the user here if email is critical
+      // For now, we'll keep the user and they can request a resend later
+      res.status(201).json({ 
+        message: "Registration successful! However, we couldn't send the verification email. Please contact support.",
+        user: {
+          id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        }
+      });
+    }
   } catch (error) {
     console.error("❌ Registration error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -85,6 +109,12 @@ export const loginUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid credentials" });
         }
 
+        // Check if email is verified
+        if (!user.isEmailVerified) {
+            console.log("❌ Email not verified");
+            return res.status(403).json({ message: "Please verify your email before logging in. Check your inbox for the verification link." });
+        }
+
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
             expiresIn: "1d",
         });
@@ -105,6 +135,49 @@ export const loginUser = async (req, res) => {
         console.error("❌ Login Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
+};
+
+// VERIFY EMAIL
+export const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({ message: "Verification token is required" });
+    }
+
+    // Hash the token to compare with stored hash
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Find user with this token and check if it's not expired
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ 
+        message: "Invalid or expired verification token" 
+      });
+    }
+
+    // Mark email as verified and clear token
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpire = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    console.log(`✅ Email verified for: ${user.email}`);
+    res.status(200).json({ 
+      message: "Email verified successfully! You can now log in." 
+    });
+  } catch (error) {
+    console.error("❌ Email verification error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
 };
 
 //get me

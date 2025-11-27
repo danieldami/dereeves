@@ -21,12 +21,10 @@ export default function RegisterPage() {
     setMessage(""); 
     try {
       const res = await api.post("/auth/register", form);
-      setMessage(res.data.message || "Registration successful! You can now log in.");
+      setMessage(res.data.message || "Registration successful! Please check your email to verify your account.");
       
-      // Optional: Redirect to login after successful registration
-      setTimeout(() => {
-          router.push('/login'); 
-      }, 2000); 
+      // Don't redirect - let user see the message about checking email
+      // They can manually go to login after verifying 
 
     } catch (err) {
       setMessage(err.response?.data?.message || "Registration failed. Please try again.");
@@ -148,13 +146,20 @@ export default function RegisterPage() {
 
         {/* Message Display */}
         {message && (
-          <p 
-            className={`mt-4 text-center p-3 rounded-lg ${
-              message.includes("successful") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          <div 
+            className={`mt-4 text-center p-4 rounded-lg ${
+              message.includes("successful") || message.includes("check your email") 
+                ? "bg-blue-50 border border-blue-200 text-blue-800" 
+                : "bg-red-100 text-red-700"
             }`}
           >
-            {message}
-          </p>
+            <p className="font-medium">{message}</p>
+            {message.includes("check your email") && (
+              <p className="text-sm mt-2 text-blue-600">
+                Didn't receive the email? Check your spam folder or try registering again.
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>

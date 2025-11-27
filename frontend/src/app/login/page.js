@@ -40,6 +40,13 @@ export default function LoginPage() {
       const status = error?.response?.status;
       const data = error?.response?.data;
       console.error("Login failed:", { status, data, error });
+      
+      // Handle email verification error (403)
+      if (status === 403) {
+        alert(data?.message || "Please verify your email before logging in. Check your inbox for the verification link.");
+        return;
+      }
+      
       if (status === 400) {
         alert(data?.message || "Invalid credentials");
         return;

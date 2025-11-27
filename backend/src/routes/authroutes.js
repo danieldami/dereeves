@@ -1,6 +1,6 @@
 //C:\Users\HP\dereeves\backend\src\routes\authroutes.js
 import express from "express";
-import { registerUser, loginUser, getMe } from "../controllers/authcontroller.js";
+import { registerUser, loginUser, getMe, verifyEmail } from "../controllers/authcontroller.js";
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 import { getAllUsers } from "../controllers/usercontroller.js";
@@ -11,6 +11,7 @@ const router = express.Router();
 // Public routes
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+router.get("/verify-email/:token", verifyEmail);
 
 // Protected routes
 router.get("/", verifyToken, isAdmin, getAllUsers);
