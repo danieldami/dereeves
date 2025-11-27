@@ -156,7 +156,7 @@ export default function RegisterPage() {
             <p className="font-medium">{message}</p>
             {message.includes("check your email") && (
               <p className="text-sm mt-2 text-blue-600">
-                Didn't receive the email? Check your spam folder or try registering again.
+                Didn&apos;t receive the email? Check your spam folder or try registering again.
               </p>
             )}
           </div>
