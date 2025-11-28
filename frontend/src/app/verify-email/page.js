@@ -3,6 +3,9 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/utils/api";
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
