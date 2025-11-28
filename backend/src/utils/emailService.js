@@ -1,6 +1,16 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend only if API key is available
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  try {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  } catch (error) {
+    console.error("❌ Failed to initialize Resend:", error);
+  }
+} else {
+  console.warn("⚠️ RESEND_API_KEY not found in environment variables");
+}
 
 /**
  * Send email verification email
@@ -11,6 +21,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 export const sendVerificationEmail = async (email, name, verificationToken) => {
   try {
+    // Check if Resend is initialized
+    if (!resend) {
+      throw new Error("Resend is not initialized. Please check RESEND_API_KEY in environment variables.");
+    }
+
     const verificationUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${verificationToken}`;
 
     const { data, error } = await resend.emails.send({
