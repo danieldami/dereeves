@@ -150,7 +150,7 @@ export default function LoginPage() {
             <p className="text-sm text-gray-600">
               Don&apos;t have an account?{' '}
               <a 
-                onClick={() => router.push("/signup")} // Assuming a /signup route
+                onClick={() => router.push("/register")} // Assuming a /signup route
                 className="font-medium text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer"
               >
                 Sign up here

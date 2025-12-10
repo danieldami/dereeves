@@ -22,7 +22,7 @@ export const forgotPassword = async (req, res) => {
     await user.save({ validateBeforeSave: false });
 
     // Create reset URL
-    const resetUrl = `http://localhost:3000/reset-password?token=${resetToken}`;
+    const resetUrl = `https://dereevesfoundations/reset-password?token=${resetToken}`;
 
     // Return the token directly (for development without email)
     res.status(200).json({
