@@ -1,16 +1,12 @@
 import { Resend } from "resend";
 
-// Initialize Resend only if API key is available
-let resend = null;
-if (process.env.RESEND_API_KEY) {
-  try {
-    resend = new Resend(process.env.RESEND_API_KEY);
-  } catch (error) {
-    console.error("❌ Failed to initialize Resend:", error);
+const getResendClient = () => {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY not found in environment variables");
   }
-} else {
-  console.warn("⚠️ RESEND_API_KEY not found in environment variables");
-}
+  return new Resend(apiKey);
+};
 
 /**
  * Send email verification email
@@ -21,11 +17,7 @@ if (process.env.RESEND_API_KEY) {
  */
 export const sendVerificationEmail = async (email, name, verificationToken) => {
   try {
-    // Check if Resend is initialized
-    if (!resend) {
-      throw new Error("Resend is not initialized. Please check RESEND_API_KEY in environment variables.");
-    }
-
+    const resend = getResendClient();
     const verificationUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/verify-email?token=${verificationToken}`;
 
     const { data, error } = await resend.emails.send({
@@ -70,14 +62,14 @@ export const sendVerificationEmail = async (email, name, verificationToken) => {
     });
 
     if (error) {
-      console.error("❌ Resend error:", error);
+      console.error("Resend error:", error);
       throw error;
     }
 
-    console.log("✅ Verification email sent to:", email);
+    console.log("Verification email sent to:", email);
     return data;
   } catch (error) {
-    console.error("❌ Error sending verification email:", error);
+    console.error("Error sending verification email:", error);
     throw error;
   }
 };
@@ -91,10 +83,7 @@ export const sendVerificationEmail = async (email, name, verificationToken) => {
  */
 export const sendPasswordResetEmail = async (email, name, resetToken) => {
   try {
-    if (!resend) {
-      throw new Error("Resend is not initialized. Please check RESEND_API_KEY in environment variables.");
-    }
-
+    const resend = getResendClient();
     const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
@@ -140,15 +129,14 @@ export const sendPasswordResetEmail = async (email, name, resetToken) => {
     });
 
     if (error) {
-      console.error("❌ Resend error:", error);
+      console.error("Resend error:", error);
       throw error;
     }
 
-    console.log("✅ Password reset email sent to:", email);
+    console.log("Password reset email sent to:", email);
     return data;
   } catch (error) {
-    console.error("❌ Error sending password reset email:", error);
+    console.error("Error sending password reset email:", error);
     throw error;
   }
 };
-
