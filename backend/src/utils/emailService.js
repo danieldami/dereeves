@@ -82,3 +82,73 @@ export const sendVerificationEmail = async (email, name, verificationToken) => {
   }
 };
 
+/**
+ * Send password reset email
+ * @param {string} email - User's email address
+ * @param {string} name - User's name
+ * @param {string} resetToken - Password reset token
+ * @returns {Promise<Object>} - Resend API response
+ */
+export const sendPasswordResetEmail = async (email, name, resetToken) => {
+  try {
+    if (!resend) {
+      throw new Error("Resend is not initialized. Please check RESEND_API_KEY in environment variables.");
+    }
+
+    const frontendUrl = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+      to: email,
+      subject: "Reset your password",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reset Password</title>
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #1f2937; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+              <h1 style="color: white; margin: 0;">Password Reset Request</h1>
+            </div>
+            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px; margin-bottom: 20px;">
+                Hi ${name || "there"}, we received a request to reset your password.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" 
+                   style="display: inline-block; background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                  Reset Password
+                </a>
+              </div>
+              <p style="font-size: 14px; color: #666; margin-top: 20px;">
+                If the button does not work, copy and paste this link:
+              </p>
+              <p style="font-size: 12px; color: #999; word-break: break-all; background: #fff; padding: 10px; border-radius: 5px;">
+                ${resetUrl}
+              </p>
+              <p style="font-size: 12px; color: #999; margin-top: 30px;">
+                This link expires in 10 minutes. If you did not request this, you can ignore this email.
+              </p>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("❌ Resend error:", error);
+      throw error;
+    }
+
+    console.log("✅ Password reset email sent to:", email);
+    return data;
+  } catch (error) {
+    console.error("❌ Error sending password reset email:", error);
+    throw error;
+  }
+};
+

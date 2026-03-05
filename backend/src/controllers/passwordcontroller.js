@@ -1,7 +1,8 @@
 import User from "../models/user.js";
 import crypto from "crypto";
+import { sendPasswordResetEmail } from "../utils/emailService.js";
 
-// Request password reset (generates token) - NO EMAIL VERSION
+// Request password reset and send email
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -25,16 +26,12 @@ export const forgotPassword = async (req, res) => {
 
     await user.save({ validateBeforeSave: false });
 
-    // Create reset URL
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+    // Send reset email
+    await sendPasswordResetEmail(user.email, user.name, resetToken);
 
-    // Return the token directly (for development without email)
     res.status(200).json({
       success: true,
-      message: "If an account with that email exists, a reset link has been generated.",
-      resetToken,
-      resetUrl,
+      message: "If an account with that email exists, a reset link has been sent.",
     });
 
   } catch (error) {
@@ -53,6 +50,10 @@ export const resetPassword = async (req, res) => {
 
     if (!token || !newPassword) {
       return res.status(400).json({ message: "Please provide token and new password" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
     }
 
     // Hash token to compare with stored hash

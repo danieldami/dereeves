@@ -9,23 +9,16 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [resetUrl, setResetUrl] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
     setError("");
-    setResetUrl("");
 
     try {
       const response = await api.post("/password/forgot", { email });
       setMessage(response.data.message);
-
-      // ✅ Make sure we have a reset URL from the backend
-      if (response.data.resetUrl) {
-        setResetUrl(response.data.resetUrl);
-      }
     } catch (err) {
       setError(err.response?.data?.message || "Something went wrong");
     } finally {
@@ -44,31 +37,18 @@ export default function ForgotPasswordPage() {
           Enter your email address and we&apos;ll send you a link to reset your password.
         </p>
 
-        {/* ✅ Success Message */}
         {message && (
           <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
-            <p className="mb-3">{message}</p>
-            {resetUrl && (
-              <a
-                href={resetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-center bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-              >
-                Click Here to Reset Password
-              </a>
-            )}
+            <p>{message}</p>
           </div>
         )}
 
-        {/* ❌ Error Message */}
         {error && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
             {error}
           </div>
         )}
 
-        {/* ✅ Form */}
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2">
